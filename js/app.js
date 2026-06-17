@@ -52,11 +52,24 @@ function normalizeResult(result) {
 
 function resultHTML(result) {
   const r = normalizeResult(result);
-  if (!r || r.home === undefined || r.away === undefined) return '<span class="vs">×</span>';
-  const status = r.status || "finished";
-  const label = status === "live" ? "LIVE" : status === "finished" ? "FT" : status;
-  const cls = status === "live" ? " live" : "";
-  return `<span class="score${cls}"><b>${r.home}</b><span>-</span><b>${r.away}</b><em>${label}</em></span>`;
+  if (!r) return '<span class="vs">×</span>';
+
+  const st = (r.status || "finished").toUpperCase();
+
+  if (st === "POSTPONED") return '<span class="vs" style="color:var(--gold);font-size:11px">مؤجلة</span>';
+  if (st === "CANCELLED")  return '<span class="vs" style="color:var(--red);font-size:11px">ملغاة</span>';
+  if (st === "TIMED" || st === "SCHEDULED") return '<span class="vs">×</span>';
+
+  if (r.home === undefined || r.home === null || r.away === undefined || r.away === null) {
+    return '<span class="vs">×</span>';
+  }
+
+  const isLive   = st === "IN_PLAY" || st === "LIVE";
+  const isPaused = st === "PAUSED";
+  const label    = isLive ? "🔴" : isPaused ? "استراحة" : "انتهت";
+  const scoreCls = (isLive || isPaused) ? " live" : "";
+
+  return `<span class="score${scoreCls}"><b>${r.home}</b><span>-</span><b>${r.away}</b><em>${label}</em></span>`;
 }
 
 function render() {
@@ -69,8 +82,10 @@ function render() {
   root.appendChild(ph);
 
   let shown = 0;
+  const todayISO = filter === "today" ? getCairoTodayISO() : null;
   groupStage.forEach(day => {
     const rows = day.m.filter(mm => {
+      if (filter === "today") return dateMap[day.date] === todayISO;
       if (filter === "all") return true;
       if (filter === "arab") return isArab(mm[1]) || isArab(mm[2]);
       if (filter === "big") return isBig(mm[1]) || isBig(mm[2]);
@@ -263,50 +278,183 @@ function teamName(t) {
   return t.replace(/ 🇦-🇿\S*/u, '').replace(/ [🏴🇦-🇿]\S*/u, '').trim();
 }
 
+// Build { "المكسيك": "🇲🇽", ... } from the groups data
+function buildFlagMap() {
+  const map = {};
+  Object.values(groups).forEach(arr => arr.forEach(t => {
+    const tn = teamName(t);
+    map[tn] = t.replace(tn, '').trim();
+  }));
+  return map;
+}
+
+// Compute standings for group g from liveResults (fallback when API standings unavailable)
+function computeGroupStandings(g) {
+  const rows = {};
+  (groups[g] || []).forEach(t => {
+    const tn = teamName(t);
+    rows[tn] = { nameAr: tn, played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, gd: 0, points: 0 };
+  });
+
+  groupStage.forEach(day => {
+    day.m.filter(mm => mm[0] === g).forEach(mm => {
+      const r = normalizeResult(liveResults[matchKey(day.date, mm[1], mm[2])]);
+      if (!r || r.home === null || r.away === null) return;
+      const st = (r.status || "finished").toUpperCase();
+      if (st === "TIMED" || st === "SCHEDULED" || st === "POSTPONED" || st === "CANCELLED") return;
+
+      const [a, b] = [mm[1], mm[2]];
+      if (!rows[a] || !rows[b]) return;
+      const ha = r.home, hb = r.away;
+      rows[a].played++; rows[b].played++;
+      rows[a].gf += ha; rows[a].ga += hb;
+      rows[b].gf += hb; rows[b].ga += ha;
+      rows[a].gd = rows[a].gf - rows[a].ga;
+      rows[b].gd = rows[b].gf - rows[b].ga;
+      if (ha > hb) { rows[a].won++; rows[a].points += 3; rows[b].lost++; }
+      else if (ha < hb) { rows[b].won++; rows[b].points += 3; rows[a].lost++; }
+      else { rows[a].draw++; rows[a].points++; rows[b].draw++; rows[b].points++; }
+    });
+  });
+
+  return Object.values(rows)
+    .sort((x, y) => y.points - x.points || y.gd - x.gd || y.gf - x.gf)
+    .map((s, i) => ({ ...s, position: i + 1 }));
+}
+
+// Return live standings if available; fall back to computed standings
+function getGroupStandings(g) {
+  if (typeof liveStandings !== "undefined" && liveStandings[g] && liveStandings[g].length) {
+    return liveStandings[g];
+  }
+  return computeGroupStandings(g);
+}
+
 function renderTeams() {
   const root = document.getElementById("teamsView");
   root.innerHTML = "";
-  const grpKeys = Object.keys(groups);
+  const flagMap = buildFlagMap();
 
-  // summary row
+  // Confederation summary
   const confCounts = {};
   Object.values(confed).forEach(c => confCounts[c] = (confCounts[c] || 0) + 1);
-  let sumHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;justify-content:center">`;
+  const sumDiv = document.createElement("div");
+  sumDiv.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;justify-content:center";
   Object.entries(confCounts).forEach(([c, n]) => {
-    sumHTML += `<span style="background:${confedColor[c]}22;border:1px solid ${confedColor[c]}55;color:${confedColor[c]};padding:5px 14px;border-radius:999px;font-size:13px;font-weight:700">${c} — ${n}</span>`;
+    const sp = document.createElement("span");
+    sp.style.cssText = `background:${confedColor[c]}22;border:1px solid ${confedColor[c]}55;color:${confedColor[c]};padding:5px 14px;border-radius:999px;font-size:13px;font-weight:700`;
+    sp.textContent = `${c} — ${n}`;
+    sumDiv.appendChild(sp);
   });
-  sumHTML += `</div>`;
-  root.innerHTML = sumHTML;
+  root.appendChild(sumDiv);
 
   const grid = document.createElement("div");
-  grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px";
+  grid.className = "teams-grid";
 
-  grpKeys.forEach(g => {
+  Object.keys(groups).forEach(g => {
+    const standings = getGroupStandings(g);
     const box = document.createElement("div");
-    box.style.cssText = `background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden`;
-    let html = `<div style="padding:11px 16px;background:var(--panel2);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:var(--gold);color:#1a1000;border-radius:8px;font-family:'Cairo',sans-serif;font-size:16px;font-weight:900">${g}</span>
-      <span style="font-weight:700;font-size:15px">المجموعة ${g}</span>
-    </div><table style="width:100%;border-collapse:collapse">`;
+    box.className = "group-block";
 
-    groups[g].forEach(t => {
-      const tn = teamName(t);
-      const flag = t.replace(tn, '').trim();
-      const isAr = ARAB.has(tn);
-      const isBg = BIG.has(tn);
-      const cf = confed[tn] || "";
-      const cc = confedColor[cf] || "var(--muted)";
-      const rowColor = isAr ? "rgba(30,166,114,.07)" : isBg ? "rgba(212,164,55,.06)" : "";
-      html += `<tr style="border-top:1px solid var(--line);background:${rowColor}">
-        <td style="padding:10px 14px;font-size:22px;width:40px">${flag}</td>
-        <td style="padding:10px 6px;font-weight:${isAr || isBg ? 700 : 500};font-size:14px;color:${isAr ? "var(--green)" : isBg ? "var(--gold)" : "var(--txt)"}">${tn}</td>
-        <td style="padding:10px 14px;text-align:left"><span style="font-size:11px;padding:2px 7px;border-radius:5px;background:${cc}22;color:${cc};font-weight:700">${cf}</span></td>
-      </tr>`;
+    // ── Group header ──
+    const hdr = document.createElement("div");
+    hdr.className = "group-header";
+    const badge = document.createElement("span");
+    badge.className = "grp-badge";
+    badge.textContent = g;
+    const title = document.createElement("span");
+    title.className = "grp-title";
+    title.textContent = `المجموعة ${g}`;
+    hdr.appendChild(badge);
+    hdr.appendChild(title);
+    box.appendChild(hdr);
+
+    // ── Standings table ──
+    const scrollWrap = document.createElement("div");
+    scrollWrap.className = "std-scroll";
+
+    const tbl = document.createElement("table");
+    tbl.className = "std-table";
+
+    const thead = document.createElement("thead");
+    const hRow = document.createElement("tr");
+    ["#", "المنتخب", "لعب", "فوز", "تعادل", "خسارة", "له", "عليه", "فرق", "نقاط"].forEach((col, i) => {
+      const th = document.createElement("th");
+      th.textContent = col;
+      th.className = i === 0 ? "std-pos" : i === 1 ? "std-team-h" : "std-num";
+      hRow.appendChild(th);
     });
-    html += "</table>";
-    box.innerHTML = html;
+    thead.appendChild(hRow);
+    tbl.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    standings.forEach(row => {
+      const tr = document.createElement("tr");
+      const isAr = ARAB.has(row.nameAr);
+      const isBg = BIG.has(row.nameAr);
+      if (isAr) tr.style.background = "rgba(30,166,114,.06)";
+      else if (isBg) tr.style.background = "rgba(212,164,55,.04)";
+
+      // Position
+      const tdPos = document.createElement("td");
+      tdPos.className = "std-pos";
+      tdPos.textContent = row.position;
+      tr.appendChild(tdPos);
+
+      // Team name + flag
+      const tdTeam = document.createElement("td");
+      tdTeam.className = "std-team";
+      const flagSpan = document.createElement("span");
+      flagSpan.className = "std-flag";
+      flagSpan.textContent = flagMap[row.nameAr] || "";
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = row.nameAr;
+      nameSpan.style.color = isAr ? "var(--green)" : isBg ? "var(--gold)" : "var(--txt)";
+      tdTeam.appendChild(flagSpan);
+      tdTeam.appendChild(nameSpan);
+      tr.appendChild(tdTeam);
+
+      // Numeric stats
+      const nums = [row.played, row.won, row.draw, row.lost, row.gf, row.ga,
+                    (row.gd > 0 ? "+" : "") + row.gd, row.points];
+      nums.forEach((val, idx) => {
+        const td = document.createElement("td");
+        td.className = idx === 7 ? "std-num std-pts" : "std-num";
+        if (idx === 7 && row.points > 0) {
+          td.style.cssText = "color:var(--gold);font-weight:800";
+        }
+        td.textContent = val;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    scrollWrap.appendChild(tbl);
+    box.appendChild(scrollWrap);
+
+    // ── Group matches ──
+    const groupMatchRows = [];
+    groupStage.forEach(day => {
+      day.m.filter(mm => mm[0] === g).forEach(mm => {
+        groupMatchRows.push(matchFromArray(mm, day.date));
+      });
+    });
+
+    if (groupMatchRows.length) {
+      const matchDiv = document.createElement("div");
+      matchDiv.className = "group-matches";
+      const mt = document.createElement("table");
+      // matchRowHTML builds from static data.js strings + integer scores + hardcoded labels only
+      let rowsHtml = "";
+      groupMatchRows.forEach(m => { rowsHtml += matchRowHTML(m); });
+      mt.innerHTML = rowsHtml;
+      matchDiv.appendChild(mt);
+      box.appendChild(matchDiv);
+    }
+
     grid.appendChild(box);
   });
+
   root.appendChild(grid);
 }
 
@@ -575,7 +723,9 @@ async function fetchExternalResults() {
 function initDefaultView() {
   const today = getCairoTodayISO();
   if (matchDays.has(today)) {
-    openMatchesByISO(today, { clearActiveButtons: true });
+    filter = "today";
+    document.querySelectorAll(".btn").forEach(x => x.classList.toggle("active", x.dataset.f === "today"));
+    render();
     return;
   }
   render();

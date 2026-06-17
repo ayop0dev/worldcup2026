@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>كأس العالم 2026 — الجدول الكامل</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body>
   <header>
@@ -15,7 +15,8 @@
 
   <div class="wrap">
     <div class="controls">
-      <button class="btn green active" data-f="egypt" id="bEgypt">🇪🇬 مصر</button>
+      <button class="btn active" data-f="today" id="bToday">النهارده</button>
+      <button class="btn green" data-f="egypt" id="bEgypt">🇪🇬 مصر</button>
       <button class="btn green" data-f="arab" id="bArab">🟢 العرب</button>
       <button class="btn" data-f="big" id="bBig">⭐ الكبار</button>
       <button class="btn" data-f="all" id="bAll">الكل</button>
@@ -23,6 +24,7 @@
       <button class="btn" data-f="stadiums" id="bStadiums">🏟️ الملاعب</button>
     </div>
     <div class="note" id="mainNote">⏰ كل المواعيد بتوقيت <b>القاهرة (EET)</b> — المباريات بالليل بسبب فرق التوقيت مع أمريكا. المنتخبات العربية: مصر، السعودية، المغرب، تونس، الجزائر، قطر، الأردن، العراق.</div>
+    <div id="liveIndicator" class="live-ind live-ind--off"><span class="ind-dot static-dot"></span> بيانات محفوظة</div>
 
     <div class="toolbar" id="toolbar">
       <!-- Search -->
@@ -67,7 +69,8 @@
     </div>
   </div>
 
-  <script src="js/data.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/data.js?v=2"></script>
+  <script src="js/app.js?v=2"></script>
+  <script src="js/live.js?v=2"></script>
 </body>
 </html>

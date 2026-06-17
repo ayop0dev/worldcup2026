@@ -729,3 +729,141 @@ td {
 .stadium-tag:hover {
   color: #fff;
 }
+
+/* ───── LIVE INDICATOR ───── */
+.live-ind {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 6px 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: color .3s;
+}
+.live-ind--on  { color: var(--green); }
+.live-ind--off { color: var(--muted); }
+.ind-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.live-dot   { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.static-dot { background: var(--muted); }
+
+/* ───── TEAMS / STANDINGS VIEW ───── */
+.teams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+  gap: 20px;
+}
+.group-block {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.group-header {
+  padding: 11px 16px;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.grp-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--gold);
+  color: #1a1000;
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 16px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+.grp-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* Standings table */
+.std-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.std-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 440px;
+}
+.std-table thead tr {
+  background: var(--panel2);
+  border-bottom: 1px solid var(--line);
+}
+.std-table th {
+  padding: 7px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.std-pos {
+  width: 28px;
+  text-align: center;
+  padding: 8px 6px !important;
+  color: var(--muted);
+  font-size: 13px;
+}
+.std-team-h {
+  text-align: right;
+  min-width: 130px;
+}
+.std-team {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px !important;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.std-flag {
+  font-size: 18px;
+  line-height: 1;
+}
+.std-num {
+  text-align: center;
+  padding: 8px 6px !important;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.std-pts {
+  font-weight: 800;
+  font-size: 14px !important;
+}
+
+/* Group matches within teams view */
+.group-matches {
+  border-top: 1px solid var(--line);
+}
+.group-matches table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+@media (max-width: 600px) {
+  .teams-grid {
+    grid-template-columns: 1fr;
+  }
+  .std-table {
+    min-width: 380px;
+  }
+}
