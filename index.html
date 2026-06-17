@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>كأس العالم 2026 — الجدول الكامل</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="kicker">USA · CANADA · MEXICO</div>
+    <h1>كأس العالم 2026</h1>
+    <div class="sub">٤٨ منتخب · ١٠٤ مباراة · من ١١ يونيو حتى ١٩ يوليو</div>
+  </header>
+
+  <div class="wrap">
+    <div class="controls">
+      <button class="btn green active" data-f="egypt" id="bEgypt">🇪🇬 مصر</button>
+      <button class="btn green" data-f="arab" id="bArab">🟢 العرب</button>
+      <button class="btn" data-f="big" id="bBig">⭐ الكبار</button>
+      <button class="btn" data-f="all" id="bAll">الكل</button>
+      <button class="btn" data-f="teams" id="bTeams">🌍 المشاركين</button>
+      <button class="btn" data-f="stadiums" id="bStadiums">🏟️ الملاعب</button>
+    </div>
+    <div class="note" id="mainNote">⏰ كل المواعيد بتوقيت <b>القاهرة (EET)</b> — المباريات بالليل بسبب فرق التوقيت مع أمريكا. المنتخبات العربية: مصر، السعودية، المغرب، تونس، الجزائر، قطر، الأردن، العراق.</div>
+
+    <div class="toolbar" id="toolbar">
+      <!-- Search -->
+      <div class="search-wrap">
+        <span class="si">🔍</span>
+        <input type="text" id="searchInput" placeholder="ابحث عن منتخب...">
+        <div class="search-results" id="searchResults"></div>
+      </div>
+      <!-- Calendar toggle -->
+      <div style="position:relative">
+        <button id="calToggle" style="
+          background:var(--panel);border:1px solid var(--line);color:var(--muted);
+          padding:11px 18px;border-radius:12px;cursor:pointer;
+          font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;
+          display:flex;align-items:center;gap:8px;transition:.18s;white-space:nowrap;
+        ">📅 <span id="calToggleLabel">اختر يوم</span></button>
+        <div id="calDropdown" style="
+          display:none;position:absolute;top:calc(100% + 8px);inset-inline-end:0;
+          background:var(--panel);border:1px solid var(--line);border-radius:14px;
+          padding:14px;z-index:100;box-shadow:0 12px 40px rgba(0,0,0,.7);min-width:250px;
+        ">
+          <div class="cal-head">
+            <button class="cal-month-nav" id="calPrev">‹</button>
+            <span id="calTitle"></span>
+            <button class="cal-month-nav" id="calNext">›</button>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search match results panel -->
+    <div id="searchMatchView"></div>
+
+    <div id="schedule"></div>
+    <div id="teamsView" style="display:none"></div>
+    <div id="stadiumsView" style="display:none"></div>
+
+    <div class="legend" id="legend">
+      <span><i class="dot" style="background:var(--green)"></i> منتخب عربي</span>
+      <span><i class="dot" style="background:var(--gold)"></i> منتخب كبير</span>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
