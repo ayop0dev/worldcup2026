@@ -99,7 +99,7 @@ function render() {
 
   const ph = document.createElement("div");
   ph.className = "phase";
-  ph.textContent = "دور المجموعات";
+  ph.textContent = filter === "today" ? "مباريات اليوم" : "دور المجموعات";
   root.appendChild(ph);
 
   let shown = 0;
@@ -603,7 +603,8 @@ document.addEventListener('click', e => {
 
 document.getElementById("homeIcon")?.addEventListener("click", e => {
   e.preventDefault();
-  document.getElementById("bToday")?.click();
+  track('wc_filter_click', { filter: 'today', label: 'home' });
+  showTodayMatches();
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
@@ -759,15 +760,29 @@ async function fetchExternalResults() {
   }
 }
 
-function initDefaultView() {
-  const today = getCairoTodayISO();
-  if (matchDays.has(today)) {
-    filter = "today";
-    document.querySelectorAll(".btn").forEach(x => x.classList.toggle("active", x.dataset.f === "today"));
-    render();
-    return;
-  }
+function showTodayMatches() {
+  filter = "today";
+  document.querySelectorAll(".btn").forEach(x => x.classList.remove("active"));
+  document.getElementById("schedule").style.display = "block";
+  document.getElementById("teamsView").style.display = "none";
+  document.getElementById("stadiumsView").style.display = "none";
+  document.getElementById("legend").style.display = "flex";
+  document.getElementById("mainNote").style.display = "block";
+  document.getElementById("searchMatchView").style.display = "none";
+  document.getElementById("toolbar").style.display = "flex";
+  searchInput.value = "";
+  searchResults.classList.remove("open");
+  calSelected = null;
+  document.getElementById('calToggleLabel').textContent = 'اختر يوم';
+  document.getElementById('calDropdown').style.display = 'none';
+  document.getElementById('calToggle').style.borderColor = 'var(--line)';
+  document.getElementById('calToggle').style.color = 'var(--muted)';
+  renderCal();
   render();
+}
+
+function initDefaultView() {
+  showTodayMatches();
 }
 
 renderCal();
