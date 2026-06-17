@@ -920,3 +920,161 @@ td {
     min-width: 380px;
   }
 }
+
+/* ───── ADD TO HOME SCREEN BANNER ───── */
+#a2hsBanner {
+  display: none;
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 900;
+  background: var(--panel);
+  border: 1px solid rgba(212,164,55,.45);
+  border-radius: 16px;
+  padding: 14px 16px 16px;
+  direction: rtl;
+  font-family: 'Cairo', sans-serif;
+  box-shadow: 0 8px 32px rgba(0,0,0,.7);
+}
+#a2hsBanner p {
+  font-size: 13px;
+  color: var(--txt);
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+.a2hs-actions {
+  display: flex;
+  gap: 10px;
+}
+.a2hs-btn-primary {
+  background: var(--gold);
+  color: #1a1000;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.a2hs-btn-secondary {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ───── ADD TO HOME SCREEN MODAL ───── */
+#a2hsModal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,.72);
+  align-items: flex-end;
+}
+#a2hsModal.open {
+  display: flex;
+}
+#a2hsModalBox {
+  background: var(--panel);
+  border-top: 2px solid var(--gold);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 18px 32px;
+  width: 100%;
+  max-height: 75vh;
+  overflow-y: auto;
+  direction: rtl;
+  font-family: 'Cairo', sans-serif;
+  box-shadow: 0 -8px 40px rgba(0,0,0,.7);
+}
+.a2hs-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.a2hs-modal-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--gold);
+}
+.a2hs-close {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.a2hs-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 14px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  letter-spacing: .3px;
+}
+.a2hs-section-label::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 13px;
+  background: var(--green);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.a2hs-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+}
+.a2hs-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+.a2hs-num {
+  background: rgba(212,164,55,.15);
+  color: var(--gold);
+  border: 1px solid rgba(212,164,55,.28);
+  min-width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.a2hs-step-text {
+  font-size: 13.5px;
+  color: var(--txt);
+  line-height: 1.55;
+  padding-top: 3px;
+}
+
+@media (min-width: 769px) {
+  #a2hsBanner, #a2hsModal { display: none !important; }
+}

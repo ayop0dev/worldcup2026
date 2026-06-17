@@ -83,5 +83,60 @@
   <script src="js/data.js?v=5"></script>
   <script src="js/app.js?v=5"></script>
   <script src="js/live.js?v=5"></script>
+
+  <!-- Add to Home Screen Banner -->
+  <div id="a2hsBanner" aria-label="إضافة للشاشة الرئيسية">
+    <p>أضف الموقع إلى شاشة هاتفك للوصول السريع لمباريات كأس العالم 2026</p>
+    <div class="a2hs-actions">
+      <button class="a2hs-btn-primary" id="a2hsHow">طريقة الإضافة</button>
+      <button class="a2hs-btn-secondary" id="a2hsLater">لاحقًا</button>
+    </div>
+  </div>
+
+  <!-- Add to Home Screen Instructions Modal -->
+  <div id="a2hsModal" aria-modal="true">
+    <div id="a2hsModalBox">
+      <div class="a2hs-modal-head">
+        <span class="a2hs-modal-title">طريقة إضافة الموقع للشاشة الرئيسية</span>
+        <button class="a2hs-close" id="a2hsModalClose" aria-label="إغلاق">✕</button>
+      </div>
+      <div id="a2hsStepsIos">
+        <div class="a2hs-section-label">iPhone / iPad — Safari</div>
+        <ol class="a2hs-steps">
+          <li class="a2hs-step">
+            <span class="a2hs-num">١</span>
+            <span class="a2hs-step-text">اضغط زر المشاركة <span style="color:var(--gold);font-weight:700">□↑</span> في الشريط السفلي</span>
+          </li>
+          <li class="a2hs-step">
+            <span class="a2hs-num">٢</span>
+            <span class="a2hs-step-text">اختر <b>Add to Home Screen</b> من القائمة</span>
+          </li>
+          <li class="a2hs-step">
+            <span class="a2hs-num">٣</span>
+            <span class="a2hs-step-text">اضغط <b>Add</b> في أعلى الشاشة</span>
+          </li>
+        </ol>
+      </div>
+      <div id="a2hsStepsAndroid">
+        <div class="a2hs-section-label">Android — Chrome</div>
+        <ol class="a2hs-steps">
+          <li class="a2hs-step">
+            <span class="a2hs-num">١</span>
+            <span class="a2hs-step-text">اضغط قائمة الثلاث نقاط <b>⋮</b> في أعلى المتصفح</span>
+          </li>
+          <li class="a2hs-step">
+            <span class="a2hs-num">٢</span>
+            <span class="a2hs-step-text">اختر <b>Add to Home screen</b> أو <b>Install app</b></span>
+          </li>
+          <li class="a2hs-step">
+            <span class="a2hs-num">٣</span>
+            <span class="a2hs-step-text">اضغط <b>Add</b> للتأكيد</span>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/a2hs.js?v=1"></script>
 </body>
 </html>
