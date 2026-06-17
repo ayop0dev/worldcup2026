@@ -72,6 +72,22 @@ function resultHTML(result) {
   return `<span class="score${scoreCls}"><b>${r.home}</b><span>-</span><b>${r.away}</b><em>${label}</em></span>`;
 }
 
+function timeHTML(result, t) {
+  const r = normalizeResult(result);
+  if (!r) return `<b>${t}</b>`;
+  const st = (r.status || "finished").toUpperCase();
+  if (st === "FINISHED" || st === "FT" || st === "AWARDED") {
+    return '<b style="color:var(--muted);font-size:12px;letter-spacing:0">انتهت</b>';
+  }
+  if (st === "IN_PLAY" || st === "LIVE") {
+    return '<b style="color:var(--green);font-size:12px;letter-spacing:0">🔴 مباشر</b>';
+  }
+  if (st === "PAUSED") {
+    return '<b style="color:var(--gold);font-size:12px;letter-spacing:0">استراحة</b>';
+  }
+  return `<b>${t}</b>`;
+}
+
 function render() {
   const root = document.getElementById("schedule");
   root.innerHTML = "";
@@ -108,7 +124,7 @@ function render() {
       tr.innerHTML = `
         <td class="grp"><span>${g}</span></td>
         <td class="match"><span class="${cls(a)}">${a}</span>${ta}${resultHTML(result)}<span class="${cls(b)}">${b}</span>${tb}</td>
-        <td class="time"><b>${t}</b><div class="city">${c}${stdLink}</div></td>`;
+        <td class="time">${timeHTML(result, t)}<div class="city">${c}${stdLink}</div></td>`;
       tbl.appendChild(tr);
     });
     box.appendChild(tbl);
@@ -507,7 +523,7 @@ function matchRowHTML(m) {
   return `<tr>
     <td class="grp"><span>${m.g}</span></td>
     <td class="match"><span class="${cls(a)}">${a}</span>${ta}${resultHTML(result)}<span class="${cls(b)}">${b}</span>${tb}</td>
-    <td class="time"><b>${m.t}</b><div class="city">${m.c}${stdLink}</div></td>
+    <td class="time">${timeHTML(result, m.t)}<div class="city">${m.c}${stdLink}</div></td>
   </tr>`;
 }
 function showMatchesPanel(title, matches) {
