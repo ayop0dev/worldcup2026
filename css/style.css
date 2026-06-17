@@ -34,15 +34,12 @@ body {
 header {
   padding: 20px 20px 34px;
   text-align: center;
-  border-bottom: 1px solid var(--line);
+  border-bottom: none;
   position: relative;
   overflow: visible;
 }
 header::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(45deg, transparent, transparent 18px, rgba(255, 255, 255, 0.012) 18px, rgba(255, 255, 255, 0.012) 36px);
+  display: none;
 }
 .kicker {
   font-family: 'Cairo', sans-serif;
@@ -289,6 +286,28 @@ td {
   max-width: 1100px;
   margin: 0 auto;
 }
+.home-icon {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  transition: 0.18s;
+}
+.home-icon:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+.home-icon img {
+  width: 26px;
+  height: 26px;
+  display: block;
+  object-fit: contain;
+}
 .search-wrap {
   flex: 1;
   min-width: 200px;
@@ -447,10 +466,43 @@ td {
 }
 
 @media (max-width: 600px) {
+  header {
+    padding: 20px 16px 24px;
+  }
+  h1 {
+    margin-top: 24px;
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin: 24px 0 10px;
+  }
+  .btn {
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+  #bTeams {
+    font-size: 10.2px;
+  }
   .toolbar {
     flex-wrap: nowrap;
     align-items: center;
     gap: 8px;
+  }
+  .home-icon {
+    width: 44px;
+    height: 44px;
+  }
+  .home-icon img {
+    width: 24px;
+    height: 24px;
   }
   .search-wrap {
     flex: 1 1 auto;

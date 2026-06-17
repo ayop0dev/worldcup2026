@@ -268,7 +268,7 @@ function viewStadium(id) {
   document.getElementById("legend").style.display = "none";
   document.getElementById("mainNote").style.display = "none";
   document.getElementById("searchMatchView").style.display = "none";
-  document.getElementById("toolbar").style.display = "none";
+  document.getElementById("toolbar").style.display = "flex";
   
   currentStadiumFilter = 'all';
   renderStadiums();
@@ -488,7 +488,7 @@ document.querySelectorAll(".btn").forEach(btn => {
     document.getElementById("legend").style.display = (isTeams || isStadiums) ? "none" : "flex";
     document.getElementById("mainNote").style.display = (isTeams || isStadiums) ? "none" : "block";
     document.getElementById("searchMatchView").style.display = "none";
-    document.getElementById("toolbar").style.display = (isTeams || isStadiums) ? "none" : "flex";
+    document.getElementById("toolbar").style.display = "flex";
     
     searchInput.value = "";
     searchResults.classList.remove("open");
@@ -583,6 +583,12 @@ searchResults.addEventListener('click', e => {
 });
 document.addEventListener('click', e => {
   if (!e.target.closest('.search-wrap')) searchResults.classList.remove('open');
+});
+
+document.getElementById("homeIcon")?.addEventListener("click", e => {
+  e.preventDefault();
+  document.getElementById("bToday")?.click();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
 // ── CALENDAR ─────────────────────────────────────────────
