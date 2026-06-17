@@ -221,8 +221,18 @@ function setIndicator(mode) {
 
 function refreshLiveData() {
   Promise.all([fetchAndMergeMatches(), fetchAndStoreStandings()])
-    .then(function() {
+    .then(function(results) {
       setIndicator("live");
+      try {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+          event: 'wc_live_data_loaded',
+          matches_count: results[0] || 0,
+          standings_groups_count: Object.keys(liveStandings).length,
+          source: 'cloudflare_worker',
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
       if (typeof filter !== "undefined" && filter === "teams") {
         if (typeof renderTeams === "function") renderTeams();
       } else {
@@ -232,6 +242,14 @@ function refreshLiveData() {
     .catch(function(err) {
       console.warn("[live] fetch error:", err.message || err);
       setIndicator("static");
+      try {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+          event: 'wc_api_fallback_used',
+          reason: err.message || String(err),
+          source: 'static'
+        });
+      } catch (_) {}
     });
 }
 

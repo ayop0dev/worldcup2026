@@ -1,3 +1,8 @@
+window.dataLayer = window.dataLayer || [];
+function track(event, params) {
+  try { window.dataLayer.push(Object.assign({ event: event }, params)); } catch (_) {}
+}
+
 const cityToStadium = {
   "نيويورك/نيوجيرسي": { name: "ملعب ميتلايف", id: "metlife" },
   "مكسيكو سيتي": { name: "إستاديو أزتيكا", id: "azteca" },
@@ -252,6 +257,8 @@ function renderStadiumsList() {
 }
 
 function viewStadium(id) {
+  const _sd = typeof stadiums !== 'undefined' && stadiums.find(s => s.id === id);
+  track('wc_stadium_open', { stadium_id: id, stadium_name: _sd ? _sd.nameAr : id });
   filter = "stadiums";
   
   document.querySelectorAll(".btn").forEach(x => {
@@ -479,6 +486,7 @@ document.querySelectorAll(".btn").forEach(btn => {
     document.querySelectorAll(".btn").forEach(x => x.classList.remove("active"));
     btn.classList.add("active");
     filter = btn.dataset.f;
+    track('wc_filter_click', { filter: filter, label: btn.textContent.trim() });
     const isTeams = filter === "teams";
     const isStadiums = filter === "stadiums";
     
@@ -550,6 +558,7 @@ function hideMatchesPanel() {
 const allTeams = [...new Set(groupStage.flatMap(d => d.m.flatMap(m => [m[1], m[2]])))];
 const searchInput = document.getElementById('searchInput');
 const searchResults = document.getElementById('searchResults');
+let _searchTimer = null;
 
 searchInput.addEventListener('input', () => {
   const q = searchInput.value.trim();
@@ -569,6 +578,12 @@ searchInput.addEventListener('input', () => {
     return `<div class="sr-item" data-team="${t}"><div>${t}</div><div class="sr-sub">${ms.length} مباريات</div></div>`;
   }).join('');
   searchResults.classList.add('open');
+  if (q.length >= 2) {
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(() => {
+      track('wc_team_search', { query: q, result_count: hits.length });
+    }, 600);
+  }
 });
 searchResults.addEventListener('click', e => {
   const item = e.target.closest('.sr-item');
@@ -577,6 +592,7 @@ searchResults.addEventListener('click', e => {
   searchInput.value = team;
   searchResults.classList.remove('open');
   const ms = allMatches().filter(m => m.a.includes(team) || m.b.includes(team));
+  track('wc_team_open', { team: team, match_count: ms.length });
   showMatchesPanel(`مباريات ${team}`, ms);
   calSelected = null;
   renderCal();
@@ -612,6 +628,7 @@ function openMatchesByISO(iso, options = {}) {
   const day = groupStage.find(d => dateMap[d.date] === iso);
   const matches = day ? day.m.map(mm => matchFromArray(mm, day.date)) : [];
 
+  track('wc_calendar_day_select', { date: iso, label: label, match_count: matches.length });
   calSelected = iso;
   calYear = Number(iso.slice(0, 4));
   calMonth = Number(iso.slice(5, 7)) - 1;
