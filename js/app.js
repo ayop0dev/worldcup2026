@@ -79,7 +79,7 @@ function resultHTML(result) {
 
 function timeHTML(result, t) {
   const r = normalizeResult(result);
-  if (!r) return `<b>${t}</b>`;
+  if (!r) return `<b>${toEgyptTime(t)}</b>`;
   const st = (r.status || "finished").toUpperCase();
   if (st === "FINISHED" || st === "FT" || st === "AWARDED") {
     return '<b style="color:var(--muted);font-size:12px;letter-spacing:0">انتهت</b>';
@@ -90,7 +90,14 @@ function timeHTML(result, t) {
   if (st === "PAUSED") {
     return '<b style="color:var(--gold);font-size:12px;letter-spacing:0">استراحة</b>';
   }
-  return `<b>${t}</b>`;
+  return `<b>${toEgyptTime(t)}</b>`;
+}
+
+// The fallback schedule was entered using Egypt's old GMT+2 offset.
+// Egypt observes daylight-saving time during the 2026 tournament (GMT+3).
+function toEgyptTime(t) {
+  const [hours, minutes] = t.split(':').map(Number);
+  return `${String((hours + 1) % 24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 function render() {

@@ -3,7 +3,7 @@ const ARAB = new Set(["مصر", "السعودية", "المغرب", "تونس", 
 const BIG = new Set(["البرازيل", "الأرجنتين", "فرنسا", "إسبانيا", "ألمانيا", "إنجلترا", "البرتغال", "هولندا", "بلجيكا", "المكسيك", "الولايات المتحدة", "كرواتيا"]);
 
 // matches: [group, teamA, teamB, cairoTime, city]  — group stage
-// Cairo = ET + 6h (ET shown in sources)
+// Source schedule uses Cairo's old GMT+2 offset; app.js adds one hour for GMT+3.
 const groupStage = [
   {
     date: "الخميس ١١ يونيو",
@@ -429,4 +429,3 @@ const stadiums = [
     desc: "الملعب الوحيد الكندي بسقف قابل للنفخ — نظام هواء ضاغط يُبقي السقف مرفوعاً. استضاف نهائي كأس العالم 2015 لكرة القدم النسائية. فانكوفر مدينة ساحرة تقع بين المحيط الهادئ وجبال روكي."
   },
 ];
-
