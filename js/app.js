@@ -77,9 +77,23 @@ function resultHTML(result) {
   return `<span class="score${scoreCls}"><b>${r.home}</b><span>-</span><b>${r.away}</b><em>${label}</em></span>`;
 }
 
-function timeHTML(result, t) {
+function nextDayHTML(dayDate, t) {
+  const iso = dateMap[dayDate];
+  const cairoHour = Number(toEgyptTime(t).split(':')[0]);
+  if (!iso || cairoHour >= 8) return "";
+
+  const nextDate = new Date(`${iso}T12:00:00Z`);
+  nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+  const weekday = new Intl.DateTimeFormat("ar-EG", {
+    weekday: "long",
+    timeZone: "UTC"
+  }).format(nextDate);
+  return `<span class="next-day">فجر ${weekday}</span>`;
+}
+
+function timeHTML(result, t, dayDate) {
   const r = normalizeResult(result);
-  if (!r) return `<b>${toEgyptTime(t)}</b>`;
+  if (!r) return `<b>${toEgyptTime(t)}</b>${nextDayHTML(dayDate, t)}`;
   const st = (r.status || "finished").toUpperCase();
   if (st === "FINISHED" || st === "FT" || st === "AWARDED") {
     return '<b style="color:var(--muted);font-size:12px;letter-spacing:0">انتهت</b>';
@@ -90,7 +104,7 @@ function timeHTML(result, t) {
   if (st === "PAUSED") {
     return '<b style="color:var(--gold);font-size:12px;letter-spacing:0">استراحة</b>';
   }
-  return `<b>${toEgyptTime(t)}</b>`;
+  return `<b>${toEgyptTime(t)}</b>${nextDayHTML(dayDate, t)}`;
 }
 
 // The fallback schedule was entered using Egypt's old GMT+2 offset.
@@ -106,11 +120,11 @@ function render() {
 
   const ph = document.createElement("div");
   ph.className = "phase";
-  ph.textContent = filter === "today" ? "مباريات اليوم" : "دور المجموعات";
+  ph.textContent = filter === "today" ? "مباريات يوم البطولة" : "دور المجموعات";
   root.appendChild(ph);
 
   let shown = 0;
-  const todayISO = filter === "today" ? getCairoTodayISO() : null;
+  const todayISO = filter === "today" ? getTournamentTodayISO() : null;
   groupStage.forEach(day => {
     const rows = day.m.filter(mm => {
       if (filter === "today") return dateMap[day.date] === todayISO;
@@ -136,7 +150,7 @@ function render() {
       tr.innerHTML = `
         <td class="grp"><span>${g}</span></td>
         <td class="match"><span class="${cls(a)}">${a}</span>${ta}${resultHTML(result)}<span class="${cls(b)}">${b}</span>${tb}</td>
-        <td class="time">${timeHTML(result, t)}<div class="city">${c}${stdLink}</div></td>`;
+        <td class="time">${timeHTML(result, t, day.date)}<div class="city">${c}${stdLink}</div></td>`;
       tbl.appendChild(tr);
     });
     box.appendChild(tbl);
@@ -538,7 +552,7 @@ function matchRowHTML(m) {
   return `<tr>
     <td class="grp"><span>${m.g}</span></td>
     <td class="match"><span class="${cls(a)}">${a}</span>${ta}${resultHTML(result)}<span class="${cls(b)}">${b}</span>${tb}</td>
-    <td class="time">${timeHTML(result, m.t)}<div class="city">${m.c}${stdLink}</div></td>
+    <td class="time">${timeHTML(result, m.t, m.day)}<div class="city">${m.c}${stdLink}</div></td>
   </tr>`;
 }
 function showMatchesPanel(title, matches) {
@@ -620,15 +634,26 @@ const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "م�
 const dowNames = ["أح", "ث", "ث", "أر", "خ", "ج", "س"]; // Note: preserving standard display
 let calYear = 2026, calMonth = 5, calSelected = null;
 
-function getCairoTodayISO() {
+function getTournamentTodayISO() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Cairo",
     year: "numeric",
     month: "2-digit",
-    day: "2-digit"
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23"
   }).formatToParts(new Date());
   const values = Object.fromEntries(parts.map(p => [p.type, p.value]));
-  return `${values.year}-${values.month}-${values.day}`;
+  const cairoDate = new Date(Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day)
+  ));
+
+  // مباريات المساء وفجر اليوم التالي تظل ضمن يوم FIFA نفسه.
+  // بعد الثامنة صباحًا يبدأ يوم البطولة الجديد.
+  if (Number(values.hour) < 8) cairoDate.setUTCDate(cairoDate.getUTCDate() - 1);
+  return cairoDate.toISOString().slice(0, 10);
 }
 
 function openMatchesByISO(iso, options = {}) {

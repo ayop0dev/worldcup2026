@@ -68,29 +68,6 @@ var EN_TO_AR = {
   "Panama": "بنما"
 };
 
-// Lazy-built reverse map: "2026-06-11" → "الخميس ١١ يونيو"
-var _isoToArabic = null;
-function getIsoToArabic() {
-  if (!_isoToArabic) {
-    _isoToArabic = {};
-    Object.keys(dateMap).forEach(function(ar) {
-      _isoToArabic[dateMap[ar]] = ar;
-    });
-  }
-  return _isoToArabic;
-}
-
-// Convert a UTC date string to Cairo calendar date (YYYY-MM-DD)
-function utcToCairoDate(utcStr) {
-  var parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Africa/Cairo",
-    year: "numeric", month: "2-digit", day: "2-digit"
-  }).formatToParts(new Date(utcStr));
-  var v = {};
-  parts.forEach(function(p) { v[p.type] = p.value; });
-  return v.year + "-" + v.month + "-" + v.day;
-}
-
 // Fetch /matches from Worker and merge results into the shared liveResults map
 function fetchAndMergeMatches() {
   return fetch(WORKER_BASE + "/matches", { cache: "no-store" })
@@ -100,7 +77,6 @@ function fetchAndMergeMatches() {
     })
     .then(function(json) {
       var apiMatches = Array.isArray(json) ? json : (json.matches || []);
-      var isoToAr = getIsoToArabic();
       var count = 0;
 
       apiMatches.forEach(function(m) {
@@ -118,27 +94,25 @@ function fetchAndMergeMatches() {
           return;
         }
 
-        var isoDate = utcToCairoDate(m.utcDate);
-        var arabicDate = isoToAr[isoDate];
-        if (!arabicDate) return;
-
         var day = null;
-        for (var i = 0; i < groupStage.length; i++) {
-          if (dateMap[groupStage[i].date] === isoDate) { day = groupStage[i]; break; }
-        }
-        if (!day) return;
-
-        // Find the corresponding local match (handles either team order)
         var local = null;
-        for (var j = 0; j < day.m.length; j++) {
-          var mm = day.m[j];
-          if ((mm[1] === homeAr && mm[2] === awayAr) ||
-              (mm[1] === awayAr  && mm[2] === homeAr)) {
-            local = mm;
-            break;
+        for (var i = 0; i < groupStage.length; i++) {
+          for (var j = 0; j < groupStage[i].m.length; j++) {
+            var candidate = groupStage[i].m[j];
+            if ((candidate[1] === homeAr && candidate[2] === awayAr) ||
+                (candidate[1] === awayAr && candidate[2] === homeAr)) {
+              day = groupStage[i];
+              local = candidate;
+              break;
+            }
           }
+          if (local) break;
         }
-        if (!local) return;
+        if (!day || !local) return;
+
+        // Results are keyed by FIFA's official fixture date, even when Cairo
+        // kick-off is after midnight on the following calendar day.
+        var arabicDate = day.date;
 
         // Handle no-score statuses
         if (status === "POSTPONED" || status === "CANCELLED") {

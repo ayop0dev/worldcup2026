@@ -214,6 +214,13 @@ td {
   font-weight: 700;
   letter-spacing: 1px;
 }
+.next-day {
+  display: block;
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
 .city {
   color: var(--muted);
   font-size: 12.5px;
