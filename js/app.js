@@ -116,6 +116,8 @@ function toEgyptTime(t) {
 
 function render() {
   const root = document.getElementById("schedule");
+  const currentBracket = root.querySelector(".bracket-viewport");
+  const previousBracketScroll = currentBracket ? currentBracket.scrollLeft : null;
   root.innerHTML = "";
 
   const ph = document.createElement("div");
@@ -163,49 +165,94 @@ function render() {
     e.textContent = "لا توجد مباريات مطابقة لهذا الفلتر.";
     root.appendChild(e);
   }
-
+  renderKnockout(root, previousBracketScroll);
 }
 
-function renderKnockout() {
-  const root = document.getElementById("knockoutView");
-  const rounds = knockout.map((round, index) => `
-    <article class="round-stop ${round.key === "final" ? "round-stop--final" : ""}" style="--round-order:${index}">
-      <div class="round-marker" aria-hidden="true"><span>${String(index + 1).padStart(2, "0")}</span></div>
-      <div class="round-copy">
-        <span class="round-label">${round.label}</span>
-        <h3>${round.phase}</h3>
-        <time>${round.dates}</time>
-        <p>${round.note}</p>
-      </div>
-      <div class="round-numbers" aria-label="${round.teams} منتخب و${round.matches} مباراة">
-        <strong>${round.teams}</strong><span>منتخب</span>
-        <i aria-hidden="true"></i>
-        <strong>${round.matches}</strong><span>مباراة</span>
-      </div>
-    </article>
-  `).join("");
+function bracketTeamSlot(label, score) {
+  const scoreHTML = score === null || score === undefined ? "" : `<em>${score}</em>`;
+  const flag = typeof groups === "undefined" ? "" : (buildFlagMap()[label] || "");
+  const flagClass = flag ? " seed-badge--flag" : "";
+  return `<div class="bracket-team"><span class="seed-badge${flagClass}" aria-hidden="true">${flag || "—"}</span><b>${label}</b>${scoreHTML}</div>`;
+}
 
-  root.innerHTML = `
-    <section class="knockout-shell" aria-labelledby="knockoutTitle">
-      <header class="knockout-hero">
-        <div class="knockout-intro">
-          <span class="knockout-eyebrow">الطريق إلى ١٩ يوليو</span>
-          <h2 id="knockoutTitle">لا مجال<br><em>للتعويض.</em></h2>
-          <p>خمس مراحل. خروج مباشر. ومن ٣٢ منتخبًا يتبقى بطل واحد.</p>
-        </div>
-        <div class="trophy-mark" aria-hidden="true">
-          <svg viewBox="0 0 120 150" fill="none">
+function bracketMatch(matchNumber, fixture) {
+  const home = fixture?.home || "يتحدد لاحقًا";
+  const away = fixture?.away || "يتحدد لاحقًا";
+  return `<div class="bracket-match" aria-label="المباراة ${matchNumber}">
+    ${bracketTeamSlot(home, fixture?.homeScore)}
+    ${bracketTeamSlot(away, fixture?.awayScore)}
+    <span class="match-seed">${String(matchNumber).padStart(2, "0")}</span>
+  </div>`;
+}
+
+function bracketFixtures(stage) {
+  if (typeof liveKnockoutMatches === "undefined") return [];
+  return liveKnockoutMatches.filter(match => match.stage === stage);
+}
+
+function bracketWing(startNumber, side) {
+  const offset32 = side === "left" ? 0 : 8;
+  const offset16 = side === "left" ? 0 : 4;
+  const offsetQf = side === "left" ? 0 : 2;
+  const firstFixtures = bracketFixtures("LAST_32");
+  const last16Fixtures = bracketFixtures("LAST_16");
+  const quarterFixtures = bracketFixtures("QUARTER_FINALS");
+  const semiFixtures = bracketFixtures("SEMI_FINALS");
+  const firstRound = Array.from({ length: 8 }, (_, i) => bracketMatch(startNumber + i, firstFixtures[offset32 + i])).join("");
+  const nextRound = Array.from({ length: 4 }, (_, i) => bracketMatch(17 + offset16 + i, last16Fixtures[offset16 + i])).join("");
+  const quarter = Array.from({ length: 2 }, (_, i) => bracketMatch(25 + offsetQf + i, quarterFixtures[offsetQf + i])).join("");
+  const semi = bracketMatch(side === "left" ? 29 : 30, semiFixtures[side === "left" ? 0 : 1]);
+  return `<div class="bracket-wing bracket-wing--${side}">
+    <svg class="bracket-lines" viewBox="0 0 460 600" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M100 41H110V78H120 M100 115H110V78H120 M100 189H110V226H120 M100 263H110V226H120 M100 337H110V374H120 M100 411H110V374H120 M100 485H110V522H120 M100 559H110V522H120"/>
+      <path d="M220 78H230V152H240 M220 226H230V152H240 M220 374H230V448H240 M220 522H230V448H240"/>
+      <path d="M340 152H350V300H360 M340 448H350V300H360 M460 300H470"/>
+    </svg>
+    <div class="bracket-round bracket-round--32"><span class="round-caption">دور ٣٢</span>${firstRound}</div>
+    <div class="bracket-round bracket-round--16"><span class="round-caption">دور ١٦</span>${nextRound}</div>
+    <div class="bracket-round bracket-round--qf"><span class="round-caption">ربع النهائي</span>${quarter}</div>
+    <div class="bracket-round bracket-round--sf"><span class="round-caption">نصف النهائي</span>${semi}</div>
+  </div>`;
+}
+
+function renderKnockout(root, previousScroll) {
+  const finalFixture = bracketFixtures("FINAL")[0];
+  const section = document.createElement("section");
+  section.className = "knockout-bracket";
+  section.setAttribute("aria-labelledby", "knockoutTitle");
+  section.innerHTML = `
+    <header class="bracket-head">
+      <div><span>الطريق إلى الكأس</span><h2 id="knockoutTitle">الأدوار الإقصائية</h2></div>
+      <p>٣٢ منتخبًا · خروج مباشر · بطل واحد</p>
+    </header>
+    <div class="bracket-hint" aria-hidden="true">اسحب لمشاهدة الشجرة كاملة ↔</div>
+    <div class="bracket-viewport" tabindex="0" aria-label="شجرة الأدوار الإقصائية، اسحب أفقيًا لاستعراضها">
+      <div class="bracket-canvas">
+        ${bracketWing(1, "left")}
+        <div class="bracket-center">
+          <span class="final-date">١٩ يوليو</span>
+          <svg class="final-trophy" viewBox="0 0 120 160" fill="none" aria-hidden="true">
             <path d="M38 14h44v27c0 24-8 39-22 49-14-10-22-25-22-49V14Z" stroke="currentColor" stroke-width="7"/>
             <path d="M38 25H19c0 28 11 43 31 45M82 25h19c0 28-11 43-31 45M60 90v25m-17 20h34m-27-20h20l7 20H43l7-20Z" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span>بطل العالم</span>
+          <strong>النهائي</strong>
+          <div class="finalists">${bracketTeamSlot(finalFixture?.home || "طرف النهائي", finalFixture?.homeScore)}${bracketTeamSlot(finalFixture?.away || "طرف النهائي", finalFixture?.awayScore)}</div>
+          <div class="winner-slot"><span>البطل</span><b>—</b></div>
         </div>
-      </header>
-      <div class="knockout-status"><span></span> تبدأ الإقصائيات بعد نهاية دور المجموعات</div>
-      <div class="round-road">${rounds}</div>
-      <aside class="bronze-match"><span>مباراة المركز الثالث</span><strong>السبت ١٨ يوليو</strong></aside>
-    </section>
+        ${bracketWing(9, "right")}
+      </div>
+    </div>
+    <div class="bracket-foot"><span>المواجهات تُملأ تلقائيًا بعد حسم المتأهلين</span><b>المركز الثالث · ١٨ يوليو</b></div>
   `;
+  root.appendChild(section);
+  requestAnimationFrame(() => {
+    const viewport = section.querySelector(".bracket-viewport");
+    if (viewport && viewport.scrollWidth > viewport.clientWidth) {
+      viewport.scrollLeft = previousScroll === null
+        ? (viewport.scrollWidth - viewport.clientWidth) / 2
+        : previousScroll;
+    }
+  });
 }
 
 let currentStadiumFilter = 'all';
@@ -537,14 +584,12 @@ document.querySelectorAll(".btn").forEach(btn => {
     track('wc_filter_click', { filter: filter, label: btn.textContent.trim() });
     const isTeams = filter === "teams";
     const isStadiums = filter === "stadiums";
-    const isKnockout = filter === "knockout";
     
-    document.getElementById("schedule").style.display = (isTeams || isStadiums || isKnockout) ? "none" : "block";
-    document.getElementById("knockoutView").style.display = isKnockout ? "block" : "none";
+    document.getElementById("schedule").style.display = (isTeams || isStadiums) ? "none" : "block";
     document.getElementById("teamsView").style.display = isTeams ? "block" : "none";
     document.getElementById("stadiumsView").style.display = isStadiums ? "block" : "none";
-    document.getElementById("legend").style.display = (isTeams || isStadiums || isKnockout) ? "none" : "flex";
-    document.getElementById("mainNote").style.display = (isTeams || isStadiums || isKnockout) ? "none" : "block";
+    document.getElementById("legend").style.display = (isTeams || isStadiums) ? "none" : "flex";
+    document.getElementById("mainNote").style.display = (isTeams || isStadiums) ? "none" : "block";
     document.getElementById("searchMatchView").style.display = "none";
     document.getElementById("toolbar").style.display = "flex";
     
@@ -561,8 +606,6 @@ document.querySelectorAll(".btn").forEach(btn => {
       renderTeams();
     } else if (isStadiums) {
       renderStadiums();
-    } else if (isKnockout) {
-      renderKnockout();
     } else {
       render();
     }
@@ -598,7 +641,6 @@ function showMatchesPanel(title, matches) {
   v.innerHTML = html;
   v.style.display = 'block';
   document.getElementById('schedule').style.display = 'none';
-  document.getElementById('knockoutView').style.display = 'none';
   document.getElementById('teamsView').style.display = 'none';
   document.getElementById('stadiumsView').style.display = 'none';
   document.getElementById('legend').style.display = 'none';
@@ -606,13 +648,11 @@ function showMatchesPanel(title, matches) {
 function hideMatchesPanel() {
   const isTeams = filter === 'teams';
   const isStadiums = filter === 'stadiums';
-  const isKnockout = filter === 'knockout';
   document.getElementById('searchMatchView').style.display = 'none';
-  document.getElementById('schedule').style.display = (isTeams || isStadiums || isKnockout) ? 'none' : 'block';
-  document.getElementById('knockoutView').style.display = isKnockout ? 'block' : 'none';
+  document.getElementById('schedule').style.display = (isTeams || isStadiums) ? 'none' : 'block';
   document.getElementById('teamsView').style.display = isTeams ? 'block' : 'none';
   document.getElementById('stadiumsView').style.display = isStadiums ? 'block' : 'none';
-  document.getElementById('legend').style.display = (isTeams || isStadiums || isKnockout) ? 'none' : 'flex';
+  document.getElementById('legend').style.display = (isTeams || isStadiums) ? 'none' : 'flex';
 }
 
 // ── SEARCH ───────────────────────────────────────────────
@@ -836,7 +876,6 @@ function showTodayMatches() {
   filter = "today";
   document.querySelectorAll(".btn").forEach(x => x.classList.remove("active"));
   document.getElementById("schedule").style.display = "block";
-  document.getElementById("knockoutView").style.display = "none";
   document.getElementById("teamsView").style.display = "none";
   document.getElementById("stadiumsView").style.display = "none";
   document.getElementById("legend").style.display = "flex";

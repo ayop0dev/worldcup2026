@@ -3,6 +3,7 @@
 
 var liveStandings = {};
 var liveSyncSummary = null;
+var liveKnockoutMatches = [];
 
 var WORKER_BASE = "https://worldcup2026-api.ayopwebdev.workers.dev";
 
@@ -80,6 +81,7 @@ function fetchAndMergeMatches() {
     })
     .then(function(json) {
       var apiMatches = Array.isArray(json) ? json : (json.matches || []);
+      liveKnockoutMatches = [];
       var summary = {
         received: apiMatches.length,
         receivedGroup: 0,
@@ -95,6 +97,20 @@ function fetchAndMergeMatches() {
 
         var homeEn = m.homeTeam && m.homeTeam.name;
         var awayEn = m.awayTeam && m.awayTeam.name;
+        if (m.stage && m.stage !== "GROUP_STAGE") {
+          var knockoutScore = m.score && m.score.fullTime;
+          liveKnockoutMatches.push({
+            id: m.id,
+            stage: m.stage,
+            utcDate: m.utcDate,
+            status: status,
+            home: homeEn ? (EN_TO_AR[homeEn] || homeEn) : null,
+            away: awayEn ? (EN_TO_AR[awayEn] || awayEn) : null,
+            homeScore: knockoutScore && knockoutScore.home !== null ? knockoutScore.home : null,
+            awayScore: knockoutScore && knockoutScore.away !== null ? knockoutScore.away : null
+          });
+          return;
+        }
         if (!homeEn || !awayEn) return;
 
         var homeAr = EN_TO_AR[homeEn];
@@ -152,6 +168,10 @@ function fetchAndMergeMatches() {
           id: m.id
         };
         summary.matched++;
+      });
+
+      liveKnockoutMatches.sort(function(a, b) {
+        return String(a.utcDate || "").localeCompare(String(b.utcDate || ""));
       });
 
       liveSyncSummary = summary;
