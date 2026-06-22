@@ -2,6 +2,7 @@
 // Uses the Cloudflare Worker proxy; no football-data.org token is exposed here.
 
 var liveStandings = {};
+var liveSyncSummary = null;
 
 var WORKER_BASE = "https://worldcup2026-api.ayopwebdev.workers.dev";
 
@@ -16,6 +17,7 @@ var EN_TO_AR = {
   "Canada": "كندا",
   "Bosnia and Herzegovina": "البوسنة والهرسك",
   "Bosnia Herzegovina": "البوسنة والهرسك",
+  "Bosnia-Herzegovina": "البوسنة والهرسك",
   "Switzerland": "سويسرا",
   "Qatar": "قطر",
   "Brazil": "البرازيل",
@@ -46,6 +48,7 @@ var EN_TO_AR = {
   "New Zealand": "نيوزيلندا",
   "Spain": "إسبانيا",
   "Cape Verde": "الرأس الأخضر",
+  "Cape Verde Islands": "الرأس الأخضر",
   "Saudi Arabia": "السعودية",
   "Uruguay": "الأوروغواي",
   "France": "فرنسا",
@@ -77,11 +80,18 @@ function fetchAndMergeMatches() {
     })
     .then(function(json) {
       var apiMatches = Array.isArray(json) ? json : (json.matches || []);
-      var count = 0;
+      var summary = {
+        received: apiMatches.length,
+        receivedGroup: 0,
+        matched: 0,
+        localTotal: groupStage.reduce(function(total, day) { return total + day.m.length; }, 0),
+        unmappedTeams: [],
+        unmatchedFixtures: []
+      };
 
       apiMatches.forEach(function(m) {
         var status = m.status;
-        if (status === "TIMED" || status === "SCHEDULED") return;
+        if (m.stage === "GROUP_STAGE") summary.receivedGroup++;
 
         var homeEn = m.homeTeam && m.homeTeam.name;
         var awayEn = m.awayTeam && m.awayTeam.name;
@@ -90,6 +100,8 @@ function fetchAndMergeMatches() {
         var homeAr = EN_TO_AR[homeEn];
         var awayAr = EN_TO_AR[awayEn];
         if (!homeAr || !awayAr) {
+          if (!homeAr && summary.unmappedTeams.indexOf(homeEn) === -1) summary.unmappedTeams.push(homeEn);
+          if (!awayAr && summary.unmappedTeams.indexOf(awayEn) === -1) summary.unmappedTeams.push(awayEn);
           console.warn("[live] no Arabic mapping for:", homeEn, "/", awayEn);
           return;
         }
@@ -108,7 +120,10 @@ function fetchAndMergeMatches() {
           }
           if (local) break;
         }
-        if (!day || !local) return;
+        if (!day || !local) {
+          summary.unmatchedFixtures.push(homeEn + " vs " + awayEn);
+          return;
+        }
 
         // Results are keyed by FIFA's official fixture date, even when Cairo
         // kick-off is after midnight on the following calendar day.
@@ -117,26 +132,30 @@ function fetchAndMergeMatches() {
         // Handle no-score statuses
         if (status === "POSTPONED" || status === "CANCELLED") {
           liveResults[matchKey(arabicDate, local[1], local[2])] = {
-            home: null, away: null, status: status
+            home: null, away: null, status: status, utcDate: m.utcDate, id: m.id
           };
-          count++;
+          summary.matched++;
           return;
         }
 
         var sc = m.score && m.score.fullTime;
-        if (!sc || sc.home === null || sc.away === null) return;
+        var apiHomeScore = sc && sc.home !== null ? sc.home : null;
+        var apiAwayScore = sc && sc.away !== null ? sc.away : null;
 
         // Swap scores if API home/away is inverted relative to our local order
         var swapped = (local[1] === awayAr);
         liveResults[matchKey(arabicDate, local[1], local[2])] = {
-          home: swapped ? sc.away : sc.home,
-          away: swapped ? sc.home : sc.away,
-          status: status
+          home: swapped ? apiAwayScore : apiHomeScore,
+          away: swapped ? apiHomeScore : apiAwayScore,
+          status: status,
+          utcDate: m.utcDate,
+          id: m.id
         };
-        count++;
+        summary.matched++;
       });
 
-      return count;
+      liveSyncSummary = summary;
+      return summary;
     });
 }
 
@@ -172,19 +191,20 @@ function fetchAndStoreStandings() {
     });
 }
 
-function setIndicator(mode) {
+function setIndicator(mode, summary) {
   var el = document.getElementById("liveIndicator");
   if (!el) return;
   while (el.firstChild) el.removeChild(el.firstChild);
   var dot = document.createElement("span");
-  if (mode === "live") {
+  if (mode === "live" || mode === "partial") {
     var t = new Date().toLocaleTimeString("ar-EG", {
       hour: "2-digit", minute: "2-digit", timeZone: "Africa/Cairo"
     });
     dot.className = "ind-dot live-dot";
     el.appendChild(dot);
-    el.appendChild(document.createTextNode(" بيانات مباشرة · آخر تحديث: " + t));
-    el.className = "live-ind live-ind--on";
+    var coverage = summary ? " · " + summary.matched + " من " + summary.localTotal + " مباراة متزامنة" : "";
+    el.appendChild(document.createTextNode(" بيانات مباشرة" + coverage + " · آخر تحديث: " + t));
+    el.className = mode === "partial" ? "live-ind live-ind--partial" : "live-ind live-ind--on";
   } else {
     dot.className = "ind-dot static-dot";
     el.appendChild(dot);
@@ -194,16 +214,38 @@ function setIndicator(mode) {
 }
 
 function refreshLiveData() {
-  Promise.all([fetchAndMergeMatches(), fetchAndStoreStandings()])
+  var matchesError = null;
+  var standingsError = null;
+  Promise.all([
+    fetchAndMergeMatches().catch(function(err) {
+      matchesError = err;
+      return null;
+    }),
+    fetchAndStoreStandings().catch(function(err) {
+      standingsError = err;
+      return null;
+    })
+  ])
     .then(function(results) {
-      setIndicator("live");
+      var summary = results[0];
+      if (summary) {
+        var syncMode = summary.matched < summary.localTotal ? "partial" : "live";
+        setIndicator(syncMode, summary);
+      } else {
+        setIndicator("static");
+      }
+      if (matchesError) console.warn("[live] matches fetch error:", matchesError.message || matchesError);
+      if (standingsError) console.warn("[live] standings fetch error:", standingsError.message || standingsError);
       try {
         window.dataLayer = window.dataLayer || [];
         window.dataLayer.push({
-          event: 'wc_live_data_loaded',
-          matches_count: results[0] || 0,
+          event: summary ? 'wc_live_data_loaded' : 'wc_api_fallback_used',
+          matches_count: summary ? summary.matched : 0,
+          matches_total: summary ? summary.localTotal : 0,
+          api_matches_received: summary ? summary.received : 0,
           standings_groups_count: Object.keys(liveStandings).length,
-          source: 'cloudflare_worker',
+          source: summary ? 'cloudflare_worker' : 'static',
+          standings_available: !standingsError,
           updated_at: new Date().toISOString()
         });
       } catch (_) {}
@@ -212,18 +254,6 @@ function refreshLiveData() {
       } else {
         if (typeof refreshCurrentScheduleView === "function") refreshCurrentScheduleView();
       }
-    })
-    .catch(function(err) {
-      console.warn("[live] fetch error:", err.message || err);
-      setIndicator("static");
-      try {
-        window.dataLayer = window.dataLayer || [];
-        window.dataLayer.push({
-          event: 'wc_api_fallback_used',
-          reason: err.message || String(err),
-          source: 'static'
-        });
-      } catch (_) {}
     });
 }
 

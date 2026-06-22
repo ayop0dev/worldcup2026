@@ -164,21 +164,48 @@ function render() {
     root.appendChild(e);
   }
 
-  // knockout always shown
-  const kph = document.createElement("div");
-  kph.className = "phase";
-  kph.textContent = "الأدوار الإقصائية";
-  root.appendChild(kph);
+}
 
-  const kb = document.createElement("div");
-  kb.className = "day";
-  let html = "<table>";
-  knockout.forEach(k => {
-    html += `<tr><td class="match big">${k.phase}</td><td class="city" style="font-size:13.5px">${k.note}</td></tr>`;
-  });
-  html += "</table>";
-  kb.innerHTML = html;
-  root.appendChild(kb);
+function renderKnockout() {
+  const root = document.getElementById("knockoutView");
+  const rounds = knockout.map((round, index) => `
+    <article class="round-stop ${round.key === "final" ? "round-stop--final" : ""}" style="--round-order:${index}">
+      <div class="round-marker" aria-hidden="true"><span>${String(index + 1).padStart(2, "0")}</span></div>
+      <div class="round-copy">
+        <span class="round-label">${round.label}</span>
+        <h3>${round.phase}</h3>
+        <time>${round.dates}</time>
+        <p>${round.note}</p>
+      </div>
+      <div class="round-numbers" aria-label="${round.teams} منتخب و${round.matches} مباراة">
+        <strong>${round.teams}</strong><span>منتخب</span>
+        <i aria-hidden="true"></i>
+        <strong>${round.matches}</strong><span>مباراة</span>
+      </div>
+    </article>
+  `).join("");
+
+  root.innerHTML = `
+    <section class="knockout-shell" aria-labelledby="knockoutTitle">
+      <header class="knockout-hero">
+        <div class="knockout-intro">
+          <span class="knockout-eyebrow">الطريق إلى ١٩ يوليو</span>
+          <h2 id="knockoutTitle">لا مجال<br><em>للتعويض.</em></h2>
+          <p>خمس مراحل. خروج مباشر. ومن ٣٢ منتخبًا يتبقى بطل واحد.</p>
+        </div>
+        <div class="trophy-mark" aria-hidden="true">
+          <svg viewBox="0 0 120 150" fill="none">
+            <path d="M38 14h44v27c0 24-8 39-22 49-14-10-22-25-22-49V14Z" stroke="currentColor" stroke-width="7"/>
+            <path d="M38 25H19c0 28 11 43 31 45M82 25h19c0 28-11 43-31 45M60 90v25m-17 20h34m-27-20h20l7 20H43l7-20Z" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>بطل العالم</span>
+        </div>
+      </header>
+      <div class="knockout-status"><span></span> تبدأ الإقصائيات بعد نهاية دور المجموعات</div>
+      <div class="round-road">${rounds}</div>
+      <aside class="bronze-match"><span>مباراة المركز الثالث</span><strong>السبت ١٨ يوليو</strong></aside>
+    </section>
+  `;
 }
 
 let currentStadiumFilter = 'all';
@@ -510,12 +537,14 @@ document.querySelectorAll(".btn").forEach(btn => {
     track('wc_filter_click', { filter: filter, label: btn.textContent.trim() });
     const isTeams = filter === "teams";
     const isStadiums = filter === "stadiums";
+    const isKnockout = filter === "knockout";
     
-    document.getElementById("schedule").style.display = (isTeams || isStadiums) ? "none" : "block";
+    document.getElementById("schedule").style.display = (isTeams || isStadiums || isKnockout) ? "none" : "block";
+    document.getElementById("knockoutView").style.display = isKnockout ? "block" : "none";
     document.getElementById("teamsView").style.display = isTeams ? "block" : "none";
     document.getElementById("stadiumsView").style.display = isStadiums ? "block" : "none";
-    document.getElementById("legend").style.display = (isTeams || isStadiums) ? "none" : "flex";
-    document.getElementById("mainNote").style.display = (isTeams || isStadiums) ? "none" : "block";
+    document.getElementById("legend").style.display = (isTeams || isStadiums || isKnockout) ? "none" : "flex";
+    document.getElementById("mainNote").style.display = (isTeams || isStadiums || isKnockout) ? "none" : "block";
     document.getElementById("searchMatchView").style.display = "none";
     document.getElementById("toolbar").style.display = "flex";
     
@@ -532,6 +561,8 @@ document.querySelectorAll(".btn").forEach(btn => {
       renderTeams();
     } else if (isStadiums) {
       renderStadiums();
+    } else if (isKnockout) {
+      renderKnockout();
     } else {
       render();
     }
@@ -567,12 +598,21 @@ function showMatchesPanel(title, matches) {
   v.innerHTML = html;
   v.style.display = 'block';
   document.getElementById('schedule').style.display = 'none';
+  document.getElementById('knockoutView').style.display = 'none';
+  document.getElementById('teamsView').style.display = 'none';
+  document.getElementById('stadiumsView').style.display = 'none';
   document.getElementById('legend').style.display = 'none';
 }
 function hideMatchesPanel() {
+  const isTeams = filter === 'teams';
+  const isStadiums = filter === 'stadiums';
+  const isKnockout = filter === 'knockout';
   document.getElementById('searchMatchView').style.display = 'none';
-  document.getElementById('schedule').style.display = 'block';
-  document.getElementById('legend').style.display = 'flex';
+  document.getElementById('schedule').style.display = (isTeams || isStadiums || isKnockout) ? 'none' : 'block';
+  document.getElementById('knockoutView').style.display = isKnockout ? 'block' : 'none';
+  document.getElementById('teamsView').style.display = isTeams ? 'block' : 'none';
+  document.getElementById('stadiumsView').style.display = isStadiums ? 'block' : 'none';
+  document.getElementById('legend').style.display = (isTeams || isStadiums || isKnockout) ? 'none' : 'flex';
 }
 
 // ── SEARCH ───────────────────────────────────────────────
@@ -796,6 +836,7 @@ function showTodayMatches() {
   filter = "today";
   document.querySelectorAll(".btn").forEach(x => x.classList.remove("active"));
   document.getElementById("schedule").style.display = "block";
+  document.getElementById("knockoutView").style.display = "none";
   document.getElementById("teamsView").style.display = "none";
   document.getElementById("stadiumsView").style.display = "none";
   document.getElementById("legend").style.display = "flex";

@@ -183,11 +183,11 @@ const groupStage = [
 
 // knockout (placeholders — depend on standings)
 const knockout = [
-  { phase: "دور الـ٣٢", note: "يبدأ ٢٨ يونيو — المتأهلون: أول وثاني كل مجموعة + أفضل ٨ من أصحاب المركز الثالث" },
-  { phase: "دور الـ١٦", note: "٤ – ٧ يوليو" },
-  { phase: "ربع النهائي", note: "٩ – ١١ يوليو" },
-  { phase: "نصف النهائي", note: "١٤ – ١٥ يوليو" },
-  { phase: "النهائي", note: "الأحد ١٩ يوليو — نيويورك/نيوجيرسي (ملعب MetLife)" },
+  { key: "last32", phase: "دور الـ٣٢", dates: "٢٨ يونيو — ٣ يوليو", teams: 32, matches: 16, label: "بداية الطريق", note: "أول وثاني كل مجموعة + أفضل ٨ من أصحاب المركز الثالث" },
+  { key: "last16", phase: "دور الـ١٦", dates: "٤ — ٧ يوليو", teams: 16, matches: 8, label: "المواجهة تشتد", note: "الفائز فقط يواصل طريقه" },
+  { key: "quarter", phase: "ربع النهائي", dates: "٩ — ١١ يوليو", teams: 8, matches: 4, label: "ثمانية كبار", note: "أربع مواجهات تفصل الكبار عن المربع الذهبي" },
+  { key: "semi", phase: "نصف النهائي", dates: "١٤ — ١٥ يوليو", teams: 4, matches: 2, label: "خطوة من المجد", note: "ليلتان تحسمان طرفي النهائي" },
+  { key: "final", phase: "النهائي", dates: "الأحد ١٩ يوليو", teams: 2, matches: 1, label: "ليلة الكأس", note: "نيويورك / نيوجيرسي — ملعب ميتلايف" },
 ];
 
 const groups = {
