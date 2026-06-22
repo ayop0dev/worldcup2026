@@ -168,92 +168,182 @@ function render() {
   renderKnockout(root, previousBracketScroll);
 }
 
-function bracketTeamSlot(label, score) {
-  const scoreHTML = score === null || score === undefined ? "" : `<em>${score}</em>`;
-  const flag = typeof groups === "undefined" ? "" : (buildFlagMap()[label] || "");
-  const flagClass = flag ? " seed-badge--flag" : "";
-  return `<div class="bracket-team"><span class="seed-badge${flagClass}" aria-hidden="true">${flag || "—"}</span><b>${label}</b>${scoreHTML}</div>`;
+function getSortedStageMatches(stage, count) {
+  let matches = (typeof liveKnockoutMatches !== 'undefined' ? liveKnockoutMatches : [])
+    .filter(m => m.stage === stage)
+    .sort((a, b) => a.id - b.id);
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    result.push(matches[i] || null);
+  }
+  return result;
 }
 
-function bracketMatch(matchNumber, fixture) {
-  const home = fixture?.home || "يتحدد لاحقًا";
-  const away = fixture?.away || "يتحدد لاحقًا";
-  return `<div class="bracket-match" aria-label="المباراة ${matchNumber}">
-    ${bracketTeamSlot(home, fixture?.homeScore)}
-    ${bracketTeamSlot(away, fixture?.awayScore)}
-    <span class="match-seed">${String(matchNumber).padStart(2, "0")}</span>
-  </div>`;
+function renderMatchNode(stage, slotIndex, match) {
+  const home = match && match.home ? match.home : 'يتحدد لاحقًا';
+  const away = match && match.away ? match.away : 'يتحدد لاحقًا';
+  const homeScore = match && match.homeScore !== null ? `<em>${match.homeScore}</em>` : '';
+  const awayScore = match && match.awayScore !== null ? `<em>${match.awayScore}</em>` : '';
+  
+  const flagMap = typeof buildFlagMap === 'function' ? buildFlagMap() : {};
+  const homeFlag = flagMap[teamName(home)] || '';
+  const awayFlag = flagMap[teamName(away)] || '';
+  
+  const homeFlagClass = homeFlag ? ' seed-badge--flag' : '';
+  const awayFlagClass = awayFlag ? ' seed-badge--flag' : '';
+  
+  return `
+    <div class="match-node" id="node-${stage}-${slotIndex}">
+      <div class="match-team">
+        <span class="seed-badge${homeFlagClass}">${homeFlag || '—'}</span>
+        <b>${home}</b>${homeScore}
+      </div>
+      <div class="match-team">
+        <span class="seed-badge${awayFlagClass}">${awayFlag || '—'}</span>
+        <b>${away}</b>${awayScore}
+      </div>
+    </div>
+  `;
 }
 
-function bracketFixtures(stage) {
-  if (typeof liveKnockoutMatches === "undefined") return [];
-  return liveKnockoutMatches.filter(match => match.stage === stage);
+function renderColumn(stageName, matches, indices) {
+  return `
+    <div class="bracket-col col-${stageName.toLowerCase()}">
+      ${indices.map(i => renderMatchNode(stageName, i, matches[i])).join('')}
+    </div>
+  `;
 }
 
-function bracketWing(startNumber, side) {
-  const offset32 = side === "left" ? 0 : 8;
-  const offset16 = side === "left" ? 0 : 4;
-  const offsetQf = side === "left" ? 0 : 2;
-  const firstFixtures = bracketFixtures("LAST_32");
-  const last16Fixtures = bracketFixtures("LAST_16");
-  const quarterFixtures = bracketFixtures("QUARTER_FINALS");
-  const semiFixtures = bracketFixtures("SEMI_FINALS");
-  const firstRound = Array.from({ length: 8 }, (_, i) => bracketMatch(startNumber + i, firstFixtures[offset32 + i])).join("");
-  const nextRound = Array.from({ length: 4 }, (_, i) => bracketMatch(17 + offset16 + i, last16Fixtures[offset16 + i])).join("");
-  const quarter = Array.from({ length: 2 }, (_, i) => bracketMatch(25 + offsetQf + i, quarterFixtures[offsetQf + i])).join("");
-  const semi = bracketMatch(side === "left" ? 29 : 30, semiFixtures[side === "left" ? 0 : 1]);
-  return `<div class="bracket-wing bracket-wing--${side}">
-    <svg class="bracket-lines" viewBox="0 0 460 600" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M100 41H110V78H120 M100 115H110V78H120 M100 189H110V226H120 M100 263H110V226H120 M100 337H110V374H120 M100 411H110V374H120 M100 485H110V522H120 M100 559H110V522H120"/>
-      <path d="M220 78H230V152H240 M220 226H230V152H240 M220 374H230V448H240 M220 522H230V448H240"/>
-      <path d="M340 152H350V300H360 M340 448H350V300H360 M460 300H470"/>
-    </svg>
-    <div class="bracket-round bracket-round--32"><span class="round-caption">دور ٣٢</span>${firstRound}</div>
-    <div class="bracket-round bracket-round--16"><span class="round-caption">دور ١٦</span>${nextRound}</div>
-    <div class="bracket-round bracket-round--qf"><span class="round-caption">ربع النهائي</span>${quarter}</div>
-    <div class="bracket-round bracket-round--sf"><span class="round-caption">نصف النهائي</span>${semi}</div>
-  </div>`;
+function getWinner(match) {
+  if (!match || match.homeScore === null || match.awayScore === null) return '—';
+  if (match.homeScore > match.awayScore) return match.home;
+  if (match.awayScore > match.homeScore) return match.away;
+  return '—';
 }
 
 function renderKnockout(root, previousScroll) {
-  const finalFixture = bracketFixtures("FINAL")[0];
-  const section = document.createElement("section");
-  section.className = "knockout-bracket";
-  section.setAttribute("aria-labelledby", "knockoutTitle");
+  const r32 = getSortedStageMatches('LAST_32', 16);
+  const r16 = getSortedStageMatches('LAST_16', 8);
+  const qf = getSortedStageMatches('QUARTER_FINALS', 4);
+  const sf = getSortedStageMatches('SEMI_FINALS', 2);
+  const final = getSortedStageMatches('FINAL', 1);
+
+  const section = document.createElement('section');
+  section.className = 'knockout-bracket';
+  section.setAttribute('aria-labelledby', 'knockoutTitle');
+
+  const leftHTML = 
+    renderColumn('LAST_32', r32, [0,1,2,3,4,5,6,7]) +
+    renderColumn('LAST_16', r16, [0,1,2,3]) +
+    renderColumn('QUARTER_FINALS', qf, [0,1]) +
+    renderColumn('SEMI_FINALS', sf, [0]);
+
+  const rightHTML = 
+    renderColumn('SEMI_FINALS', sf, [1]) +
+    renderColumn('QUARTER_FINALS', qf, [2,3]) +
+    renderColumn('LAST_16', r16, [4,5,6,7]) +
+    renderColumn('LAST_32', r32, [8,9,10,11,12,13,14,15]);
+
+  const centerHTML = `
+    <div class="bracket-col col-final center-col">
+      <div class="trophy-wrap">
+        <svg class="final-trophy" viewBox="0 0 120 160" fill="none" aria-hidden="true">
+          <path d="M38 14h44v27c0 24-8 39-22 49-14-10-22-25-22-49V14Z" stroke="currentColor" stroke-width="7"/>
+          <path d="M38 25H19c0 28 11 43 31 45M82 25h19c0 28-11 43-31 45M60 90v25m-17 20h34m-27-20h20l7 20H43l7-20Z" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="final-label">النهائي</div>
+      </div>
+      ${renderMatchNode('FINAL', 0, final[0])}
+      <div class="winner-node">
+        <span>البطل</span>
+        <strong>${getWinner(final[0])}</strong>
+      </div>
+    </div>
+  `;
+
   section.innerHTML = `
     <header class="bracket-head">
       <div><span>الطريق إلى الكأس</span><h2 id="knockoutTitle">الأدوار الإقصائية</h2></div>
       <p>٣٢ منتخبًا · خروج مباشر · بطل واحد</p>
     </header>
-    <div class="bracket-hint" aria-hidden="true">اسحب لمشاهدة الشجرة كاملة ↔</div>
-    <div class="bracket-viewport" tabindex="0" aria-label="شجرة الأدوار الإقصائية، اسحب أفقيًا لاستعراضها">
-      <div class="bracket-canvas">
-        ${bracketWing(1, "left")}
-        <div class="bracket-center">
-          <span class="final-date">١٩ يوليو</span>
-          <svg class="final-trophy" viewBox="0 0 120 160" fill="none" aria-hidden="true">
-            <path d="M38 14h44v27c0 24-8 39-22 49-14-10-22-25-22-49V14Z" stroke="currentColor" stroke-width="7"/>
-            <path d="M38 25H19c0 28 11 43 31 45M82 25h19c0 28-11 43-31 45M60 90v25m-17 20h34m-27-20h20l7 20H43l7-20Z" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <strong>النهائي</strong>
-          <div class="finalists">${bracketTeamSlot(finalFixture?.home || "طرف النهائي", finalFixture?.homeScore)}${bracketTeamSlot(finalFixture?.away || "طرف النهائي", finalFixture?.awayScore)}</div>
-          <div class="winner-slot"><span>البطل</span><b>—</b></div>
-        </div>
-        ${bracketWing(9, "right")}
+    <div class="bracket-hint" aria-hidden="true">اسحب الشاشة لمشاهدة الشجرة كاملة ↔</div>
+    <div class="bracket-viewport" id="bracketViewport" tabindex="0" aria-label="شجرة الأدوار الإقصائية، اسحب أفقيًا لاستعراضها">
+      <div class="bracket-canvas" id="bracketCanvas">
+        <svg id="bracket-svg" class="bracket-svg-layer"></svg>
+        ${leftHTML}
+        ${centerHTML}
+        ${rightHTML}
       </div>
     </div>
     <div class="bracket-foot"><span>المواجهات تُملأ تلقائيًا بعد حسم المتأهلين</span><b>المركز الثالث · ١٨ يوليو</b></div>
   `;
+  
   root.appendChild(section);
+
   requestAnimationFrame(() => {
-    const viewport = section.querySelector(".bracket-viewport");
-    if (viewport && viewport.scrollWidth > viewport.clientWidth) {
-      viewport.scrollLeft = previousScroll === null
-        ? (viewport.scrollWidth - viewport.clientWidth) / 2
-        : previousScroll;
+    drawBracketLines();
+    const viewport = section.querySelector('.bracket-viewport');
+    if (viewport) {
+      if (previousScroll === null) {
+         viewport.scrollLeft = (viewport.scrollWidth - viewport.clientWidth) / 2;
+      } else {
+         viewport.scrollLeft = previousScroll;
+      }
     }
   });
 }
+
+function drawBracketLines() {
+  const svg = document.getElementById('bracket-svg');
+  const canvas = document.getElementById('bracketCanvas');
+  if (!svg || !canvas) return;
+  
+  svg.innerHTML = '';
+  const canvasRect = canvas.getBoundingClientRect();
+  
+  function drawLine(id1, id2, isLeft) {
+    const el1 = document.getElementById(id1);
+    const el2 = document.getElementById(id2);
+    if (!el1 || !el2) return;
+    
+    const r1 = el1.getBoundingClientRect();
+    const r2 = el2.getBoundingClientRect();
+    
+    let startX, startY, endX, endY;
+    
+    if (isLeft) {
+      startX = r1.right - canvasRect.left;
+      startY = r1.top + r1.height / 2 - canvasRect.top;
+      endX = r2.left - canvasRect.left;
+      endY = r2.top + r2.height / 2 - canvasRect.top;
+    } else {
+      startX = r1.left - canvasRect.left;
+      startY = r1.top + r1.height / 2 - canvasRect.top;
+      endX = r2.right - canvasRect.left;
+      endY = r2.top + r2.height / 2 - canvasRect.top;
+    }
+    
+    const midX = (startX + endX) / 2;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`);
+    path.setAttribute('class', 'bracket-line');
+    svg.appendChild(path);
+  }
+
+  for (let i = 0; i < 8; i++) drawLine(`node-LAST_32-${i}`, `node-LAST_16-${Math.floor(i/2)}`, true);
+  for (let i = 0; i < 4; i++) drawLine(`node-LAST_16-${i}`, `node-QUARTER_FINALS-${Math.floor(i/2)}`, true);
+  for (let i = 0; i < 2; i++) drawLine(`node-QUARTER_FINALS-${i}`, `node-SEMI_FINALS-${Math.floor(i/2)}`, true);
+  drawLine(`node-SEMI_FINALS-0`, `node-FINAL-0`, true);
+  
+  for (let i = 8; i < 16; i++) drawLine(`node-LAST_32-${i}`, `node-LAST_16-${Math.floor(i/2)}`, false);
+  for (let i = 4; i < 8; i++) drawLine(`node-LAST_16-${i}`, `node-QUARTER_FINALS-${Math.floor(i/2)}`, false);
+  for (let i = 2; i < 4; i++) drawLine(`node-QUARTER_FINALS-${i}`, `node-SEMI_FINALS-${Math.floor(i/2)}`, false);
+  drawLine(`node-SEMI_FINALS-1`, `node-FINAL-0`, false);
+}
+
+window.addEventListener('resize', () => {
+  requestAnimationFrame(drawBracketLines);
+});
 
 let currentStadiumFilter = 'all';
 
