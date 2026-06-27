@@ -114,16 +114,92 @@ function toEgyptTime(t) {
   return `${String((hours + 1) % 24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
+function setMainNote(mode) {
+  const note = document.getElementById("mainNote");
+  if (!note) return;
+  note.innerHTML = mode === "last32"
+    ? '🏆 مباريات دور الـ32 مرتبة حسب الموعد، وكل المواعيد بتوقيت <b>القاهرة (GMT+3)</b>'
+    : '⏰ المباريات مجمعة حسب يوم FIFA، وكل المواعيد بتوقيت <b>القاهرة (GMT+3)</b>';
+}
+
+function knockoutCairoDateParts(utcDate) {
+  const date = new Date(utcDate);
+  return {
+    key: new Intl.DateTimeFormat("en-CA", {
+      year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Africa/Cairo"
+    }).format(date),
+    label: new Intl.DateTimeFormat("ar-EG", {
+      weekday: "long", day: "numeric", month: "long", timeZone: "Africa/Cairo"
+    }).format(date),
+    time: new Intl.DateTimeFormat("ar-EG", {
+      hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Africa/Cairo"
+    }).format(date)
+  };
+}
+
+function renderRoundOf32Schedule(root) {
+  const matches = (typeof liveKnockoutMatches !== "undefined" ? liveKnockoutMatches : [])
+    .filter(match => match.stage === "LAST_32")
+    .sort((a, b) => String(a.utcDate || "").localeCompare(String(b.utcDate || "")));
+
+  if (!matches.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "جاري تحميل مباريات دور الـ32...";
+    root.appendChild(empty);
+    return;
+  }
+
+  const days = new Map();
+  matches.forEach(match => {
+    const cairo = knockoutCairoDateParts(match.utcDate);
+    if (!days.has(cairo.key)) days.set(cairo.key, { label: cairo.label, matches: [] });
+    days.get(cairo.key).matches.push({ match, cairo });
+  });
+
+  days.forEach(day => {
+    const box = document.createElement("div");
+    box.className = "day";
+    box.innerHTML = `<div class="day-head"><span>${day.label}</span><span class="dd">دور الـ32</span></div>`;
+    const table = document.createElement("table");
+
+    day.matches.forEach(({ match, cairo }) => {
+      const home = match.home || "يتحدد لاحقًا";
+      const away = match.away || "يتحدد لاحقًا";
+      const result = {
+        home: match.homeScore,
+        away: match.awayScore,
+        status: match.status || "TIMED"
+      };
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td class="grp"><span>${match.matchNumber || "32"}</span></td>
+        <td class="match"><span class="${cls(home)}">${home}</span>${resultHTML(result)}<span class="${cls(away)}">${away}</span></td>
+        <td class="time"><b>${cairo.time}</b><div class="city">بتوقيت القاهرة</div></td>`;
+      table.appendChild(row);
+    });
+
+    box.appendChild(table);
+    root.appendChild(box);
+  });
+}
+
 function render() {
   const root = document.getElementById("schedule");
   const currentBracket = root.querySelector(".bracket-viewport");
   const previousBracketScroll = currentBracket ? currentBracket.scrollLeft : null;
   root.innerHTML = "";
+  setMainNote(filter);
 
   const ph = document.createElement("div");
   ph.className = "phase";
-  ph.textContent = filter === "today" ? "مباريات يوم البطولة" : "دور المجموعات";
+  ph.textContent = filter === "today" ? "مباريات يوم البطولة" : filter === "last32" ? "مباريات دور الـ32" : "دور المجموعات";
   root.appendChild(ph);
+
+  if (filter === "last32") {
+    renderRoundOf32Schedule(root);
+    return;
+  }
 
   let shown = 0;
   const todayISO = filter === "today" ? getTournamentTodayISO() : null;
@@ -676,6 +752,7 @@ document.querySelectorAll(".btn").forEach(btn => {
     document.querySelectorAll(".btn").forEach(x => x.classList.remove("active"));
     btn.classList.add("active");
     filter = btn.dataset.f;
+    setMainNote(filter);
     track('wc_filter_click', { filter: filter, label: btn.textContent.trim() });
     const isTeams = filter === "teams";
     const isStadiums = filter === "stadiums";
