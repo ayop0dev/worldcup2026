@@ -137,18 +137,24 @@ function knockoutCairoDateParts(utcDate) {
   };
 }
 
-function renderRoundOf32Schedule(root, selectedMatches) {
-  const source = Array.isArray(selectedMatches)
-    ? selectedMatches
-    : (typeof liveKnockoutMatches !== "undefined" ? liveKnockoutMatches : []);
-  const matches = source
-    .filter(match => match.stage === "LAST_32")
-    .sort((a, b) => String(a.utcDate || "").localeCompare(String(b.utcDate || "")));
+function knockoutStageLabel(stage) {
+  const labels = {
+    LAST_32: "دور الـ32",
+    LAST_16: "دور الـ16",
+    QUARTER_FINALS: "ربع النهائي",
+    SEMI_FINALS: "نصف النهائي",
+    THIRD_PLACE: "المركز الثالث",
+    FINAL: "النهائي"
+  };
+  return labels[stage] || "الأدوار الإقصائية";
+}
 
+function renderKnockoutSchedule(root, matches, emptyText) {
+  matches = matches.slice().sort((a, b) => String(a.utcDate || "").localeCompare(String(b.utcDate || "")));
   if (!matches.length) {
     const empty = document.createElement("div");
     empty.className = "empty";
-    empty.textContent = "جاري تحميل مباريات دور الـ32...";
+    empty.textContent = emptyText || "جاري تحميل مباريات الأدوار الإقصائية...";
     root.appendChild(empty);
     return;
   }
@@ -163,7 +169,7 @@ function renderRoundOf32Schedule(root, selectedMatches) {
   days.forEach(day => {
     const box = document.createElement("div");
     box.className = "day";
-    box.innerHTML = `<div class="day-head"><span>${day.label}</span><span class="dd">دور الـ32</span></div>`;
+    box.innerHTML = `<div class="day-head"><span>${day.label}</span><span class="dd">${knockoutStageLabel(day.matches[0].match.stage)}</span></div>`;
     const table = document.createElement("table");
 
     day.matches.forEach(({ match, cairo }) => {
@@ -185,6 +191,14 @@ function renderRoundOf32Schedule(root, selectedMatches) {
     box.appendChild(table);
     root.appendChild(box);
   });
+}
+
+function renderRoundOf32Schedule(root, selectedMatches) {
+  const source = Array.isArray(selectedMatches)
+    ? selectedMatches
+    : (typeof liveKnockoutMatches !== "undefined" ? liveKnockoutMatches : []);
+  const matches = source.filter(match => match.stage === "LAST_32");
+  renderKnockoutSchedule(root, matches, "جاري تحميل مباريات دور الـ32...");
 }
 
 function render() {
@@ -836,6 +850,16 @@ function showMatchesPanel(title, matches) {
   document.getElementById('stadiumsView').style.display = 'none';
   document.getElementById('legend').style.display = 'none';
 }
+function showKnockoutMatchesPanel(title, matches) {
+  const v = document.getElementById('searchMatchView');
+  v.innerHTML = `<div class="phase">${title}</div>`;
+  renderKnockoutSchedule(v, matches, "جاري تحميل مباريات هذا اليوم...");
+  v.style.display = 'block';
+  document.getElementById('schedule').style.display = 'none';
+  document.getElementById('teamsView').style.display = 'none';
+  document.getElementById('stadiumsView').style.display = 'none';
+  document.getElementById('legend').style.display = 'none';
+}
 function hideMatchesPanel() {
   const isTeams = filter === 'teams';
   const isStadiums = filter === 'stadiums';
@@ -904,6 +928,39 @@ document.getElementById("homeIcon")?.addEventListener("click", e => {
 const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 const dowNames = ["أح", "ث", "ث", "أر", "خ", "ج", "س"]; // Note: preserving standard display
 let calYear = 2026, calMonth = 5, calSelected = null;
+const knockoutCalendarDays = new Set([
+  "2026-06-28", "2026-06-29", "2026-06-30",
+  "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04",
+  "2026-07-05", "2026-07-06", "2026-07-07", "2026-07-09",
+  "2026-07-10", "2026-07-11", "2026-07-14", "2026-07-15",
+  "2026-07-18", "2026-07-19"
+]);
+
+function tournamentDayISOForDate(date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", hourCycle: "h23"
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  const tournamentDate = new Date(Date.UTC(
+    Number(values.year), Number(values.month) - 1, Number(values.day)
+  ));
+  if (Number(values.hour) < 8) tournamentDate.setUTCDate(tournamentDate.getUTCDate() - 1);
+  return tournamentDate.toISOString().slice(0, 10);
+}
+
+function knockoutMatchesByTournamentDay(iso) {
+  return (typeof liveKnockoutMatches !== "undefined" ? liveKnockoutMatches : [])
+    .filter(match => match.utcDate && tournamentDayISOForDate(new Date(match.utcDate)) === iso)
+    .sort((a, b) => String(a.utcDate).localeCompare(String(b.utcDate)));
+}
+
+function arabicCalendarDateLabel(iso) {
+  return new Intl.DateTimeFormat("ar-EG", {
+    weekday: "long", day: "numeric", month: "long", timeZone: "UTC"
+  }).format(new Date(`${iso}T12:00:00Z`));
+}
 
 function getTournamentTodayISO() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -928,11 +985,12 @@ function getTournamentTodayISO() {
 }
 
 function openMatchesByISO(iso, options = {}) {
-  const label = Object.entries(dateMap).find(([k, v]) => v === iso)?.[0] || iso;
+  const label = Object.entries(dateMap).find(([k, v]) => v === iso)?.[0] || arabicCalendarDateLabel(iso);
   const day = groupStage.find(d => dateMap[d.date] === iso);
   const matches = day ? day.m.map(mm => matchFromArray(mm, day.date)) : [];
+  const knockoutMatches = day ? [] : knockoutMatchesByTournamentDay(iso);
 
-  track('wc_calendar_day_select', { date: iso, label: label, match_count: matches.length });
+  track('wc_calendar_day_select', { date: iso, label: label, match_count: matches.length + knockoutMatches.length });
   calSelected = iso;
   calYear = Number(iso.slice(0, 4));
   calMonth = Number(iso.slice(5, 7)) - 1;
@@ -944,7 +1002,11 @@ function openMatchesByISO(iso, options = {}) {
   calDropdown.style.display = "none";
   calToggle.style.borderColor = "var(--gold)";
   calToggle.style.color = "var(--gold)";
-  showMatchesPanel(`مباريات ${label}`, matches);
+  if (day) {
+    showMatchesPanel(`مباريات ${label}`, matches);
+  } else {
+    showKnockoutMatchesPanel(`مباريات ${label}`, knockoutMatches);
+  }
 
   if (options.clearActiveButtons) {
     document.querySelectorAll(".btn").forEach(x => x.classList.remove("active"));
@@ -960,7 +1022,7 @@ function renderCal() {
   for (let i = 0; i < firstDay; i++) html += `<div class="cal-day"></div>`;
   for (let d = 1; d <= daysInMonth; d++) {
     const iso = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const has = matchDays.has(iso);
+    const has = matchDays.has(iso) || knockoutCalendarDays.has(iso);
     const sel = calSelected === iso;
     html += `<div class="cal-day${has ? ' has' : ''}${sel ? ' selected' : ''}" data-iso="${iso}">${d}</div>`;
   }

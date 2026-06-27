@@ -42,11 +42,13 @@ var KNOCKOUT_MATCH_NUMBER_BY_UTC = {
   "2026-07-07T16:00:00Z": 95,
   "2026-07-07T20:00:00Z": 96,
   "2026-07-09T20:00:00Z": 97,
+  "2026-07-10T19:00:00Z": 98,
   "2026-07-11T21:00:00Z": 99,
   "2026-07-12T01:00:00Z": 100,
   "2026-07-14T19:00:00Z": 101,
   "2026-07-15T19:00:00Z": 102,
-  "2026-07-18T21:00:00Z": 103
+  "2026-07-18T21:00:00Z": 103,
+  "2026-07-19T19:00:00Z": 104
 };
 
 // Round-of-32 slots published by FIFA. Group positions are resolved from the
@@ -111,6 +113,37 @@ function hydrateRoundOf32FromStandings() {
     match.home = match.home || resolveQualifiedTeam(template.home);
     match.away = match.away || resolveQualifiedTeam(template.away);
     setKnockoutBracketMetadata(match);
+  });
+}
+
+function knockoutStageForMatchNumber(number) {
+  if (number <= 88) return "LAST_32";
+  if (number <= 96) return "LAST_16";
+  if (number <= 100) return "QUARTER_FINALS";
+  if (number <= 102) return "SEMI_FINALS";
+  if (number === 103) return "THIRD_PLACE";
+  return "FINAL";
+}
+
+function hydrateFullKnockoutSchedule() {
+  Object.keys(KNOCKOUT_MATCH_NUMBER_BY_UTC).forEach(function(utcDate) {
+    var number = KNOCKOUT_MATCH_NUMBER_BY_UTC[utcDate];
+    var exists = liveKnockoutMatches.some(function(match) {
+      return match.matchNumber === number;
+    });
+    if (exists) return;
+
+    liveKnockoutMatches.push(setKnockoutBracketMetadata({
+      id: "fallback-" + number,
+      matchNumber: number,
+      stage: knockoutStageForMatchNumber(number),
+      utcDate: utcDate,
+      status: "TIMED",
+      home: null,
+      away: null,
+      homeScore: null,
+      awayScore: null
+    }));
   });
 }
 
@@ -361,6 +394,7 @@ function refreshLiveData() {
     .then(function(results) {
       var summary = results[0];
       hydrateRoundOf32FromStandings();
+      hydrateFullKnockoutSchedule();
       if (summary) {
         var syncMode = summary.matched < summary.localTotal ? "partial" : "live";
         setIndicator(syncMode, summary);
