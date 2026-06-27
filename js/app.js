@@ -137,8 +137,11 @@ function knockoutCairoDateParts(utcDate) {
   };
 }
 
-function renderRoundOf32Schedule(root) {
-  const matches = (typeof liveKnockoutMatches !== "undefined" ? liveKnockoutMatches : [])
+function renderRoundOf32Schedule(root, selectedMatches) {
+  const source = Array.isArray(selectedMatches)
+    ? selectedMatches
+    : (typeof liveKnockoutMatches !== "undefined" ? liveKnockoutMatches : []);
+  const matches = source
     .filter(match => match.stage === "LAST_32")
     .sort((a, b) => String(a.utcDate || "").localeCompare(String(b.utcDate || "")));
 
@@ -193,12 +196,28 @@ function render() {
 
   const ph = document.createElement("div");
   ph.className = "phase";
-  ph.textContent = filter === "today" ? "مباريات يوم البطولة" : filter === "last32" ? "مباريات دور الـ32" : "دور المجموعات";
+  ph.textContent = filter === "today" ? "مباريات يوم البطولة" : filter === "last32" ? "مباريات دور الـ32" : filter === "egypt" ? "مباريات مصر" : "دور المجموعات";
   root.appendChild(ph);
 
   if (filter === "last32") {
     renderRoundOf32Schedule(root);
     return;
+  }
+
+  if (filter === "egypt") {
+    const egyptRoundOf32 = (typeof liveKnockoutMatches !== "undefined" ? liveKnockoutMatches : [])
+      .filter(match => match.stage === "LAST_32" &&
+        ((match.home || "").includes("مصر") || (match.away || "").includes("مصر")));
+    const knockoutPhase = document.createElement("div");
+    knockoutPhase.className = "phase";
+    knockoutPhase.textContent = "دور الـ32";
+    root.appendChild(knockoutPhase);
+    renderRoundOf32Schedule(root, egyptRoundOf32);
+
+    const groupsPhase = document.createElement("div");
+    groupsPhase.className = "phase";
+    groupsPhase.textContent = "دور المجموعات";
+    root.appendChild(groupsPhase);
   }
 
   let shown = 0;

@@ -92,6 +92,9 @@ h1 {
   border-color: var(--green);
   color: #fff;
 }
+.btn.filter-hidden {
+  display: none !important;
+}
 .note {
   text-align: center;
   color: var(--muted);
