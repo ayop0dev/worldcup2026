@@ -5,6 +5,115 @@ var liveStandings = {};
 var liveSyncSummary = null;
 var liveKnockoutMatches = [];
 
+// FIFA's official bracket order is not chronological. Keeping the match
+// numbers here lets the UI place every fixture on the correct route to the
+// final, even when football-data.org returns only part of the knockout list.
+var KNOCKOUT_STAGE_ORDER = {
+  LAST_32: [74, 77, 73, 75, 83, 84, 81, 82, 76, 78, 79, 80, 86, 88, 85, 87],
+  LAST_16: [89, 90, 93, 94, 91, 92, 95, 96],
+  QUARTER_FINALS: [97, 98, 99, 100],
+  SEMI_FINALS: [101, 102],
+  FINAL: [104]
+};
+
+var KNOCKOUT_MATCH_NUMBER_BY_UTC = {
+  "2026-06-28T19:00:00Z": 73,
+  "2026-06-29T20:30:00Z": 74,
+  "2026-06-30T01:00:00Z": 75,
+  "2026-06-29T17:00:00Z": 76,
+  "2026-06-30T21:00:00Z": 77,
+  "2026-06-30T17:00:00Z": 78,
+  "2026-07-01T01:00:00Z": 79,
+  "2026-07-01T16:00:00Z": 80,
+  "2026-07-02T00:00:00Z": 81,
+  "2026-07-01T20:00:00Z": 82,
+  "2026-07-02T23:00:00Z": 83,
+  "2026-07-02T19:00:00Z": 84,
+  "2026-07-03T03:00:00Z": 85,
+  "2026-07-03T22:00:00Z": 86,
+  "2026-07-04T01:30:00Z": 87,
+  "2026-07-03T18:00:00Z": 88,
+  "2026-07-04T21:00:00Z": 89,
+  "2026-07-04T17:00:00Z": 90,
+  "2026-07-05T20:00:00Z": 91,
+  "2026-07-06T00:00:00Z": 92,
+  "2026-07-06T19:00:00Z": 93,
+  "2026-07-07T00:00:00Z": 94,
+  "2026-07-07T16:00:00Z": 95,
+  "2026-07-07T20:00:00Z": 96,
+  "2026-07-09T20:00:00Z": 97,
+  "2026-07-11T21:00:00Z": 99,
+  "2026-07-12T01:00:00Z": 100,
+  "2026-07-14T19:00:00Z": 101,
+  "2026-07-15T19:00:00Z": 102,
+  "2026-07-18T21:00:00Z": 103
+};
+
+// Round-of-32 slots published by FIFA. Group positions are resolved from the
+// live standings only after all four teams in that group have played 3 games.
+var ROUND_OF_32_TEMPLATE = [
+  { number: 73, utcDate: "2026-06-28T19:00:00Z", home: { group: "A", position: 2 }, away: { group: "B", position: 2 } },
+  { number: 74, utcDate: "2026-06-29T20:30:00Z", home: { group: "E", position: 1 }, away: { third: "A/B/C/D/F" } },
+  { number: 75, utcDate: "2026-06-30T01:00:00Z", home: { group: "F", position: 1 }, away: { group: "C", position: 2 } },
+  { number: 76, utcDate: "2026-06-29T17:00:00Z", home: { group: "C", position: 1 }, away: { group: "F", position: 2 } },
+  { number: 77, utcDate: "2026-06-30T21:00:00Z", home: { group: "I", position: 1 }, away: { third: "C/D/F/G/H" } },
+  { number: 78, utcDate: "2026-06-30T17:00:00Z", home: { group: "E", position: 2 }, away: { group: "I", position: 2 } },
+  { number: 79, utcDate: "2026-07-01T01:00:00Z", home: { group: "A", position: 1 }, away: { third: "C/E/F/H/I" } },
+  { number: 80, utcDate: "2026-07-01T16:00:00Z", home: { group: "L", position: 1 }, away: { third: "E/H/I/J/K" } },
+  { number: 81, utcDate: "2026-07-02T00:00:00Z", home: { group: "D", position: 1 }, away: { third: "B/E/F/I/J" } },
+  { number: 82, utcDate: "2026-07-01T20:00:00Z", home: { group: "G", position: 1 }, away: { third: "A/E/H/I/J" } },
+  { number: 83, utcDate: "2026-07-02T23:00:00Z", home: { group: "K", position: 2 }, away: { group: "L", position: 2 } },
+  { number: 84, utcDate: "2026-07-02T19:00:00Z", home: { group: "H", position: 1 }, away: { group: "J", position: 2 } },
+  { number: 85, utcDate: "2026-07-03T03:00:00Z", home: { group: "B", position: 1 }, away: { third: "E/F/G/I/J" } },
+  { number: 86, utcDate: "2026-07-03T22:00:00Z", home: { group: "J", position: 1 }, away: { group: "H", position: 2 } },
+  { number: 87, utcDate: "2026-07-04T01:30:00Z", home: { group: "K", position: 1 }, away: { third: "D/E/I/J/L" } },
+  { number: 88, utcDate: "2026-07-03T18:00:00Z", home: { group: "D", position: 2 }, away: { group: "G", position: 2 } }
+];
+
+function setKnockoutBracketMetadata(match) {
+  if (!match) return match;
+  match.matchNumber = match.matchNumber || KNOCKOUT_MATCH_NUMBER_BY_UTC[match.utcDate] || null;
+  var order = KNOCKOUT_STAGE_ORDER[match.stage] || [];
+  match.bracketSlot = match.matchNumber ? order.indexOf(match.matchNumber) : -1;
+  return match;
+}
+
+function resolveQualifiedTeam(slot) {
+  if (slot.third) {
+    return "\u0623\u0641\u0636\u0644 \u062b\u0627\u0644\u062b (" + slot.third + ")";
+  }
+  var table = liveStandings[slot.group];
+  if (!table || table.length !== 4 || table.some(function(row) { return row.played < 3; })) return null;
+  var row = table.find(function(team) { return team.position === slot.position; });
+  return row ? row.nameAr : null;
+}
+
+function hydrateRoundOf32FromStandings() {
+  ROUND_OF_32_TEMPLATE.forEach(function(template) {
+    var match = liveKnockoutMatches.find(function(candidate) {
+      return candidate.matchNumber === template.number;
+    });
+    if (!match) {
+      match = {
+        id: "fallback-" + template.number,
+        matchNumber: template.number,
+        stage: "LAST_32",
+        utcDate: template.utcDate,
+        status: "TIMED",
+        home: null,
+        away: null,
+        homeScore: null,
+        awayScore: null
+      };
+      liveKnockoutMatches.push(match);
+    }
+
+    match.home = match.home || resolveQualifiedTeam(template.home);
+    match.away = match.away || resolveQualifiedTeam(template.away);
+    setKnockoutBracketMetadata(match);
+  });
+}
+
 var WORKER_BASE = "https://worldcup2026-api.ayopwebdev.workers.dev";
 
 // English (football-data.org) → Arabic team name mapping
@@ -99,7 +208,7 @@ function fetchAndMergeMatches() {
         var awayEn = m.awayTeam && m.awayTeam.name;
         if (m.stage && m.stage !== "GROUP_STAGE") {
           var knockoutScore = m.score && m.score.fullTime;
-          liveKnockoutMatches.push({
+          liveKnockoutMatches.push(setKnockoutBracketMetadata({
             id: m.id,
             stage: m.stage,
             utcDate: m.utcDate,
@@ -108,7 +217,7 @@ function fetchAndMergeMatches() {
             away: awayEn ? (EN_TO_AR[awayEn] || awayEn) : null,
             homeScore: knockoutScore && knockoutScore.home !== null ? knockoutScore.home : null,
             awayScore: knockoutScore && knockoutScore.away !== null ? knockoutScore.away : null
-          });
+          }));
           return;
         }
         if (!homeEn || !awayEn) return;
@@ -171,6 +280,9 @@ function fetchAndMergeMatches() {
       });
 
       liveKnockoutMatches.sort(function(a, b) {
+        if (a.stage === b.stage && a.bracketSlot >= 0 && b.bracketSlot >= 0) {
+          return a.bracketSlot - b.bracketSlot;
+        }
         return String(a.utcDate || "").localeCompare(String(b.utcDate || ""));
       });
 
@@ -248,6 +360,7 @@ function refreshLiveData() {
   ])
     .then(function(results) {
       var summary = results[0];
+      hydrateRoundOf32FromStandings();
       if (summary) {
         var syncMode = summary.matched < summary.localTotal ? "partial" : "live";
         setIndicator(syncMode, summary);

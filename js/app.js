@@ -171,7 +171,12 @@ function render() {
 function getSortedStageMatches(stage, count) {
   let matches = (typeof liveKnockoutMatches !== 'undefined' ? liveKnockoutMatches : [])
     .filter(m => m.stage === stage)
-    .sort((a, b) => a.id - b.id);
+    .sort((a, b) => {
+      const aSlot = Number.isInteger(a.bracketSlot) && a.bracketSlot >= 0 ? a.bracketSlot : Number.MAX_SAFE_INTEGER;
+      const bSlot = Number.isInteger(b.bracketSlot) && b.bracketSlot >= 0 ? b.bracketSlot : Number.MAX_SAFE_INTEGER;
+      if (aSlot !== bSlot) return aSlot - bSlot;
+      return String(a.utcDate || '').localeCompare(String(b.utcDate || ''));
+    });
   const result = [];
   for (let i = 0; i < count; i++) {
     result.push(matches[i] || null);
