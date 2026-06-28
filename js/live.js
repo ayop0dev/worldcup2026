@@ -4,6 +4,7 @@
 var liveStandings = {};
 var liveSyncSummary = null;
 var liveKnockoutMatches = [];
+var liveRefreshInFlight = false;
 
 // FIFA's official bracket order is not chronological. Keeping the match
 // numbers here lets the UI place every fixture on the correct route to the
@@ -51,25 +52,25 @@ var KNOCKOUT_MATCH_NUMBER_BY_UTC = {
   "2026-07-19T19:00:00Z": 104
 };
 
-// Round-of-32 slots published by FIFA. Group positions are resolved from the
-// live standings only after all four teams in that group have played 3 games.
+// Confirmed Round-of-32 fixtures after the group stage was completed.
+// These are the authoritative fallback when football-data.org omits a match.
 var ROUND_OF_32_TEMPLATE = [
-  { number: 73, utcDate: "2026-06-28T19:00:00Z", home: { group: "A", position: 2 }, away: { group: "B", position: 2 } },
-  { number: 74, utcDate: "2026-06-29T20:30:00Z", home: { group: "E", position: 1 }, away: { third: "A/B/C/D/F" } },
-  { number: 75, utcDate: "2026-06-30T01:00:00Z", home: { group: "F", position: 1 }, away: { group: "C", position: 2 } },
-  { number: 76, utcDate: "2026-06-29T17:00:00Z", home: { group: "C", position: 1 }, away: { group: "F", position: 2 } },
-  { number: 77, utcDate: "2026-06-30T21:00:00Z", home: { group: "I", position: 1 }, away: { third: "C/D/F/G/H" } },
-  { number: 78, utcDate: "2026-06-30T17:00:00Z", home: { group: "E", position: 2 }, away: { group: "I", position: 2 } },
-  { number: 79, utcDate: "2026-07-01T01:00:00Z", home: { group: "A", position: 1 }, away: { third: "C/E/F/H/I" } },
-  { number: 80, utcDate: "2026-07-01T16:00:00Z", home: { group: "L", position: 1 }, away: { third: "E/H/I/J/K" } },
-  { number: 81, utcDate: "2026-07-02T00:00:00Z", home: { group: "D", position: 1 }, away: { third: "B/E/F/I/J" } },
-  { number: 82, utcDate: "2026-07-01T20:00:00Z", home: { group: "G", position: 1 }, away: { third: "A/E/H/I/J" } },
-  { number: 83, utcDate: "2026-07-02T23:00:00Z", home: { group: "K", position: 2 }, away: { group: "L", position: 2 } },
-  { number: 84, utcDate: "2026-07-02T19:00:00Z", home: { group: "H", position: 1 }, away: { group: "J", position: 2 } },
-  { number: 85, utcDate: "2026-07-03T03:00:00Z", home: { group: "B", position: 1 }, away: { third: "E/F/G/I/J" } },
-  { number: 86, utcDate: "2026-07-03T22:00:00Z", home: { group: "J", position: 1 }, away: { group: "H", position: 2 } },
-  { number: 87, utcDate: "2026-07-04T01:30:00Z", home: { group: "K", position: 1 }, away: { third: "D/E/I/J/L" } },
-  { number: 88, utcDate: "2026-07-03T18:00:00Z", home: { group: "D", position: 2 }, away: { group: "G", position: 2 } }
+  { number: 73, utcDate: "2026-06-28T19:00:00Z", home: "جنوب أفريقيا", away: "كندا" },
+  { number: 74, utcDate: "2026-06-29T20:30:00Z", home: "ألمانيا", away: "باراغواي" },
+  { number: 75, utcDate: "2026-06-30T01:00:00Z", home: "هولندا", away: "المغرب" },
+  { number: 76, utcDate: "2026-06-29T17:00:00Z", home: "البرازيل", away: "اليابان" },
+  { number: 77, utcDate: "2026-06-30T21:00:00Z", home: "فرنسا", away: "السويد" },
+  { number: 78, utcDate: "2026-06-30T17:00:00Z", home: "ساحل العاج", away: "النرويج" },
+  { number: 79, utcDate: "2026-07-01T01:00:00Z", home: "المكسيك", away: "الإكوادور" },
+  { number: 80, utcDate: "2026-07-01T16:00:00Z", home: "إنجلترا", away: "الكونغو الديمقراطية" },
+  { number: 81, utcDate: "2026-07-02T00:00:00Z", home: "الولايات المتحدة", away: "البوسنة والهرسك" },
+  { number: 82, utcDate: "2026-07-01T20:00:00Z", home: "بلجيكا", away: "السنغال" },
+  { number: 83, utcDate: "2026-07-02T23:00:00Z", home: "البرتغال", away: "كرواتيا" },
+  { number: 84, utcDate: "2026-07-02T19:00:00Z", home: "إسبانيا", away: "النمسا" },
+  { number: 85, utcDate: "2026-07-03T03:00:00Z", home: "سويسرا", away: "الجزائر" },
+  { number: 86, utcDate: "2026-07-03T22:00:00Z", home: "الأرجنتين", away: "الرأس الأخضر" },
+  { number: 87, utcDate: "2026-07-04T01:30:00Z", home: "كولومبيا", away: "غانا" },
+  { number: 88, utcDate: "2026-07-03T18:00:00Z", home: "أستراليا", away: "مصر" }
 ];
 
 function setKnockoutBracketMetadata(match) {
@@ -80,17 +81,7 @@ function setKnockoutBracketMetadata(match) {
   return match;
 }
 
-function resolveQualifiedTeam(slot) {
-  if (slot.third) {
-    return "\u0623\u0641\u0636\u0644 \u062b\u0627\u0644\u062b (" + slot.third + ")";
-  }
-  var table = liveStandings[slot.group];
-  if (!table || table.length !== 4 || table.some(function(row) { return row.played < 3; })) return null;
-  var row = table.find(function(team) { return team.position === slot.position; });
-  return row ? row.nameAr : null;
-}
-
-function hydrateRoundOf32FromStandings() {
+function hydrateConfirmedRoundOf32() {
   ROUND_OF_32_TEMPLATE.forEach(function(template) {
     var match = liveKnockoutMatches.find(function(candidate) {
       return candidate.matchNumber === template.number;
@@ -110,8 +101,8 @@ function hydrateRoundOf32FromStandings() {
       liveKnockoutMatches.push(match);
     }
 
-    match.home = match.home || resolveQualifiedTeam(template.home);
-    match.away = match.away || resolveQualifiedTeam(template.away);
+    match.home = match.home || template.home;
+    match.away = match.away || template.away;
     setKnockoutBracketMetadata(match);
   });
 }
@@ -223,10 +214,12 @@ function fetchAndMergeMatches() {
     })
     .then(function(json) {
       var apiMatches = Array.isArray(json) ? json : (json.matches || []);
-      liveKnockoutMatches = [];
+      var nextKnockoutMatches = [];
+      var nextLiveResults = Object.assign({}, liveResults);
       var summary = {
         received: apiMatches.length,
         receivedGroup: 0,
+        receivedRoundOf32: 0,
         matched: 0,
         localTotal: groupStage.reduce(function(total, day) { return total + day.m.length; }, 0),
         unmappedTeams: [],
@@ -236,12 +229,13 @@ function fetchAndMergeMatches() {
       apiMatches.forEach(function(m) {
         var status = m.status;
         if (m.stage === "GROUP_STAGE") summary.receivedGroup++;
+        if (m.stage === "LAST_32") summary.receivedRoundOf32++;
 
         var homeEn = m.homeTeam && m.homeTeam.name;
         var awayEn = m.awayTeam && m.awayTeam.name;
         if (m.stage && m.stage !== "GROUP_STAGE") {
           var knockoutScore = m.score && m.score.fullTime;
-          liveKnockoutMatches.push(setKnockoutBracketMetadata({
+          nextKnockoutMatches.push(setKnockoutBracketMetadata({
             id: m.id,
             stage: m.stage,
             utcDate: m.utcDate,
@@ -289,7 +283,7 @@ function fetchAndMergeMatches() {
 
         // Handle no-score statuses
         if (status === "POSTPONED" || status === "CANCELLED") {
-          liveResults[matchKey(arabicDate, local[1], local[2])] = {
+          nextLiveResults[matchKey(arabicDate, local[1], local[2])] = {
             home: null, away: null, status: status, utcDate: m.utcDate, id: m.id
           };
           summary.matched++;
@@ -302,7 +296,7 @@ function fetchAndMergeMatches() {
 
         // Swap scores if API home/away is inverted relative to our local order
         var swapped = (local[1] === awayAr);
-        liveResults[matchKey(arabicDate, local[1], local[2])] = {
+        nextLiveResults[matchKey(arabicDate, local[1], local[2])] = {
           home: swapped ? apiAwayScore : apiHomeScore,
           away: swapped ? apiHomeScore : apiAwayScore,
           status: status,
@@ -312,13 +306,15 @@ function fetchAndMergeMatches() {
         summary.matched++;
       });
 
-      liveKnockoutMatches.sort(function(a, b) {
+      nextKnockoutMatches.sort(function(a, b) {
         if (a.stage === b.stage && a.bracketSlot >= 0 && b.bracketSlot >= 0) {
           return a.bracketSlot - b.bracketSlot;
         }
         return String(a.utcDate || "").localeCompare(String(b.utcDate || ""));
       });
 
+      liveResults = nextLiveResults;
+      liveKnockoutMatches = nextKnockoutMatches;
       liveSyncSummary = summary;
       return summary;
     });
@@ -332,11 +328,12 @@ function fetchAndStoreStandings() {
       return res.json();
     })
     .then(function(json) {
+      var nextStandings = {};
       (json.standings || []).forEach(function(grp) {
         if (!grp.group || !grp.table) return;
         var letter = grp.group.replace("Group ", "").trim();
         if (!letter || letter.length > 2) return;
-        liveStandings[letter] = grp.table.map(function(row) {
+        nextStandings[letter] = grp.table.map(function(row) {
           return {
             position: row.position,
             nameEn: row.team.name,
@@ -353,7 +350,91 @@ function fetchAndStoreStandings() {
           };
         });
       });
+      if (Object.keys(nextStandings).length !== 12) {
+        throw new Error("standings incomplete: " + Object.keys(nextStandings).length + "/12");
+      }
+      liveStandings = nextStandings;
+      return nextStandings;
     });
+}
+
+function completedGroupResult(result) {
+  if (!result) return false;
+  var status = String(result.status || "").toUpperCase();
+  return status !== "TIMED" && status !== "SCHEDULED" &&
+    status !== "POSTPONED" && status !== "CANCELLED" &&
+    Number.isFinite(Number(result.home)) && Number.isFinite(Number(result.away));
+}
+
+// football-data.org currently omits one finished fixture from four groups.
+// When exactly one fixture is absent, the final GF/GA totals determine its
+// score uniquely. We accept it only when both teams produce the same score.
+function reconcileMissingGroupResultsFromStandings() {
+  var restored = 0;
+
+  Object.keys(liveStandings).forEach(function(group) {
+    var table = liveStandings[group];
+    if (!table || table.length !== 4 || table.some(function(row) { return row.played !== 3; })) return;
+
+    var totals = {};
+    table.forEach(function(row) {
+      totals[row.nameAr] = { gf: 0, ga: 0, targetGf: row.gf, targetGa: row.ga };
+    });
+
+    var missing = [];
+    groupStage.forEach(function(day) {
+      day.m.filter(function(match) { return match[0] === group; }).forEach(function(match) {
+        var key = matchKey(day.date, match[1], match[2]);
+        var result = liveResults[key];
+        if (!completedGroupResult(result)) {
+          missing.push({ key: key, home: match[1], away: match[2] });
+          return;
+        }
+        if (!totals[match[1]] || !totals[match[2]]) return;
+        var homeScore = Number(result.home);
+        var awayScore = Number(result.away);
+        totals[match[1]].gf += homeScore;
+        totals[match[1]].ga += awayScore;
+        totals[match[2]].gf += awayScore;
+        totals[match[2]].ga += homeScore;
+      });
+    });
+
+    if (missing.length !== 1) return;
+    var fixture = missing[0];
+    var homeTotals = totals[fixture.home];
+    var awayTotals = totals[fixture.away];
+    if (!homeTotals || !awayTotals) return;
+
+    var homeScore = homeTotals.targetGf - homeTotals.gf;
+    var awayScore = homeTotals.targetGa - homeTotals.ga;
+    var awayHomeCheck = awayTotals.targetGa - awayTotals.ga;
+    var awayScoreCheck = awayTotals.targetGf - awayTotals.gf;
+    var valid = Number.isInteger(homeScore) && Number.isInteger(awayScore) &&
+      homeScore >= 0 && awayScore >= 0 &&
+      homeScore === awayHomeCheck && awayScore === awayScoreCheck;
+    if (!valid) return;
+
+    liveResults[fixture.key] = {
+      home: homeScore,
+      away: awayScore,
+      status: "FINISHED",
+      source: "reconciled_from_final_standings"
+    };
+    restored++;
+  });
+
+  return restored;
+}
+
+function countCompletedGroupResults() {
+  var completed = 0;
+  groupStage.forEach(function(day) {
+    day.m.forEach(function(match) {
+      if (completedGroupResult(liveResults[matchKey(day.date, match[1], match[2])])) completed++;
+    });
+  });
+  return completed;
 }
 
 function setIndicator(mode, summary) {
@@ -367,7 +448,12 @@ function setIndicator(mode, summary) {
     });
     dot.className = "ind-dot live-dot";
     el.appendChild(dot);
-    var coverage = summary ? " · " + summary.matched + " من " + summary.localTotal + " مباراة متزامنة" : "";
+    var coverage = summary
+      ? " · المجموعات " + summary.groupComplete + "/" + summary.localTotal +
+        (summary.reconciledGroup ? " (" + summary.reconciledGroup + " مستعادة من الترتيب النهائي)" : "") +
+        " · دور الـ32 " + summary.roundOf32Complete + "/16" +
+        " · الترتيب " + summary.standingsGroups + "/12"
+      : "";
     el.appendChild(document.createTextNode(" بيانات مباشرة" + coverage + " · آخر تحديث: " + t));
     el.className = mode === "partial" ? "live-ind live-ind--partial" : "live-ind live-ind--on";
   } else {
@@ -379,9 +465,11 @@ function setIndicator(mode, summary) {
 }
 
 function refreshLiveData() {
+  if (liveRefreshInFlight) return Promise.resolve(null);
+  liveRefreshInFlight = true;
   var matchesError = null;
   var standingsError = null;
-  Promise.all([
+  return Promise.all([
     fetchAndMergeMatches().catch(function(err) {
       matchesError = err;
       return null;
@@ -393,10 +481,20 @@ function refreshLiveData() {
   ])
     .then(function(results) {
       var summary = results[0];
-      hydrateRoundOf32FromStandings();
+      hydrateConfirmedRoundOf32();
       hydrateFullKnockoutSchedule();
       if (summary) {
-        var syncMode = summary.matched < summary.localTotal ? "partial" : "live";
+        summary.reconciledGroup = standingsError ? 0 : reconcileMissingGroupResultsFromStandings();
+        summary.groupComplete = countCompletedGroupResults();
+        summary.roundOf32Complete = liveKnockoutMatches.filter(function(match) {
+          return match.stage === "LAST_32" && match.home && match.away;
+        }).length;
+        summary.standingsGroups = Object.keys(liveStandings).length;
+        summary.standingsFresh = !standingsError;
+        var syncMode = summary.groupComplete === summary.localTotal &&
+          summary.roundOf32Complete === 16 &&
+          summary.standingsGroups === 12 &&
+          summary.standingsFresh ? "live" : "partial";
         setIndicator(syncMode, summary);
       } else {
         setIndicator("static");
@@ -407,7 +505,7 @@ function refreshLiveData() {
         window.dataLayer = window.dataLayer || [];
         window.dataLayer.push({
           event: summary ? 'wc_live_data_loaded' : 'wc_api_fallback_used',
-          matches_count: summary ? summary.matched : 0,
+          matches_count: summary ? summary.groupComplete : 0,
           matches_total: summary ? summary.localTotal : 0,
           api_matches_received: summary ? summary.received : 0,
           standings_groups_count: Object.keys(liveStandings).length,
@@ -421,6 +519,9 @@ function refreshLiveData() {
       } else {
         if (typeof refreshCurrentScheduleView === "function") refreshCurrentScheduleView();
       }
+    })
+    .finally(function() {
+      liveRefreshInFlight = false;
     });
 }
 

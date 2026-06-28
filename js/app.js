@@ -236,6 +236,7 @@ function render() {
 
   let shown = 0;
   const todayISO = filter === "today" ? getTournamentTodayISO() : null;
+  const todayKnockoutMatches = todayISO ? knockoutMatchesByTournamentDay(todayISO) : [];
   groupStage.forEach(day => {
     const rows = day.m.filter(mm => {
       if (filter === "today") return dateMap[day.date] === todayISO;
@@ -267,6 +268,11 @@ function render() {
     box.appendChild(tbl);
     root.appendChild(box);
   });
+
+  if (todayKnockoutMatches.length) {
+    shown += todayKnockoutMatches.length;
+    renderKnockoutSchedule(root, todayKnockoutMatches);
+  }
 
   if (!shown) {
     const e = document.createElement("div");
