@@ -2,6 +2,23 @@ const assert = require("assert");
 const fs = require("fs");
 const vm = require("vm");
 
+{
+  const index = fs.readFileSync("index.html", "utf8");
+  const release = JSON.parse(fs.readFileSync("version.json", "utf8"));
+  const assetVersions = Array.from(index.matchAll(/(?:css|js)\/[^"']+\?v=([^"']+)/g), match => match[1]);
+
+  assert(release.version);
+  assert(index.includes(`window.WC_APP_VERSION = "${release.version}"`));
+  assert(assetVersions.length >= 5);
+  assert(assetVersions.every(version => version === release.version));
+  assert(index.includes('fetch("version.json?t=" + Date.now()'));
+  assert(index.includes('cache: "no-store"'));
+
+  const htaccess = fs.readFileSync(".htaccess", "utf8");
+  assert(htaccess.includes('Cache-Control "no-store, no-cache, must-revalidate, max-age=0"'));
+  assert(htaccess.includes('FilesMatch "\\.(js|css)$"'));
+}
+
 function loadLive(groupStage = [], liveResults = {}) {
   const context = {
     console: { warn() {} },

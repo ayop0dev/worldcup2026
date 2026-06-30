@@ -3,6 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <script>
+    window.WC_APP_VERSION = "20260630-2";
+    (function () {
+      var checking = false;
+      var reloading = false;
+
+      function checkForUpdate() {
+        if (checking || reloading) return;
+        checking = true;
+        fetch("version.json?t=" + Date.now(), {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" }
+        })
+          .then(function (response) {
+            if (!response.ok) throw new Error("version " + response.status);
+            return response.json();
+          })
+          .then(function (release) {
+            if (!release.version || release.version === window.WC_APP_VERSION) return;
+            reloading = true;
+            var freshUrl = new URL(window.location.href);
+            freshUrl.searchParams.set("appv", release.version);
+            window.location.replace(freshUrl.toString());
+          })
+          .catch(function () {})
+          .finally(function () { checking = false; });
+      }
+
+      window.addEventListener("pageshow", checkForUpdate);
+      window.addEventListener("focus", checkForUpdate);
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "visible") checkForUpdate();
+      });
+      setInterval(checkForUpdate, 5 * 60 * 1000);
+      checkForUpdate();
+    }());
+  </script>
   <!-- Google Tag Manager -->
   <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
   new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -11,7 +51,7 @@
   })(window,document,'script','dataLayer','GTM-MBQS5DV2');</script>
   <!-- End Google Tag Manager -->
   <title>كأس العالم 2026 — الجدول الكامل</title>
-  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=20260630-2">
 </head>
 <body>
   <!-- Google Tag Manager (noscript) -->
@@ -81,9 +121,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=8"></script>
-  <script src="js/app.js?v=14"></script>
-  <script src="js/live.js?v=11"></script>
+  <script src="js/data.js?v=20260630-2"></script>
+  <script src="js/app.js?v=20260630-2"></script>
+  <script src="js/live.js?v=20260630-2"></script>
 
   <!-- Add to Home Screen Banner -->
   <div id="a2hsBanner" aria-label="إضافة للشاشة الرئيسية">
@@ -138,6 +178,6 @@
     </div>
   </div>
 
-  <script src="js/a2hs.js?v=1"></script>
+  <script src="js/a2hs.js?v=20260630-2"></script>
 </body>
 </html>
