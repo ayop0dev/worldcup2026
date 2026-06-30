@@ -17,6 +17,14 @@ const vm = require("vm");
   const htaccess = fs.readFileSync(".htaccess", "utf8");
   assert(htaccess.includes('Cache-Control "no-store, no-cache, must-revalidate, max-age=0"'));
   assert(htaccess.includes('FilesMatch "\\.(js|css)$"'));
+
+  const app = fs.readFileSync("js/app.js", "utf8");
+  const css = fs.readFileSync("css/style.css", "utf8");
+  assert(app.includes('row.className = isFinished ? "match-finished" : "match-upcoming"'));
+  assert(app.includes('class="finished-label"'));
+  assert(app.includes("match-node--finished"));
+  assert(css.includes("tr.match-finished"));
+  assert(css.includes(".match-node--finished"));
 }
 
 function loadLive(groupStage = [], liveResults = {}) {

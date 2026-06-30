@@ -178,18 +178,24 @@ function renderKnockoutSchedule(root, matches, emptyText) {
     day.matches.forEach(({ match, cairo }) => {
       const home = match.home || "يتحدد لاحقًا";
       const away = match.away || "يتحدد لاحقًا";
+      const status = (match.status || "TIMED").toUpperCase();
+      const isFinished = status === "FINISHED" || status === "FT" || status === "AWARDED";
       const result = {
         home: match.homeScore,
         away: match.awayScore,
         homePenalties: match.homePenalties,
         awayPenalties: match.awayPenalties,
-        status: match.status || "TIMED"
+        status
       };
       const row = document.createElement("tr");
+      row.className = isFinished ? "match-finished" : "match-upcoming";
+      row.dataset.status = status.toLowerCase();
       row.innerHTML = `
         <td class="grp"><span>${match.matchNumber || "32"}</span></td>
         <td class="match"><span class="${cls(home)}">${home}</span>${resultHTML(result)}<span class="${cls(away)}">${away}</span></td>
-        <td class="time"><b>${cairo.time}</b><div class="city">بتوقيت القاهرة</div></td>`;
+        <td class="time">${isFinished
+          ? `<b class="finished-label"><span aria-hidden="true">✓</span> انتهت</b><div class="city">بدأت ${cairo.time}</div>`
+          : `<b>${cairo.time}</b><div class="city">بتوقيت القاهرة</div>`}</td>`;
       table.appendChild(row);
     });
 
@@ -307,6 +313,9 @@ function getSortedStageMatches(stage, count) {
 function renderMatchNode(stage, slotIndex, match) {
   const home = match && match.home ? match.home : 'يتحدد لاحقًا';
   const away = match && match.away ? match.away : 'يتحدد لاحقًا';
+  const status = match && match.status ? String(match.status).toUpperCase() : 'TIMED';
+  const isFinished = status === 'FINISHED' || status === 'FT' || status === 'AWARDED';
+  const winner = getWinner(match);
   const homePenalty = match && Number.isInteger(match.homePenalties) ? ` <small>(${match.homePenalties})</small>` : '';
   const awayPenalty = match && Number.isInteger(match.awayPenalties) ? ` <small>(${match.awayPenalties})</small>` : '';
   const homeScore = match && match.homeScore !== null ? `<em>${match.homeScore}${homePenalty}</em>` : '';
@@ -320,12 +329,12 @@ function renderMatchNode(stage, slotIndex, match) {
   const awayFlagClass = awayFlag ? ' seed-badge--flag' : '';
   
   return `
-    <div class="match-node" id="node-${stage}-${slotIndex}">
-      <div class="match-team">
+    <div class="match-node${isFinished ? ' match-node--finished' : ''}" id="node-${stage}-${slotIndex}">
+      <div class="match-team${winner === home ? ' match-team--winner' : ''}">
         <span class="seed-badge${homeFlagClass}">${homeFlag || '—'}</span>
         <b>${home}</b>${homeScore}
       </div>
-      <div class="match-team">
+      <div class="match-team${winner === away ? ' match-team--winner' : ''}">
         <span class="seed-badge${awayFlagClass}">${awayFlag || '—'}</span>
         <b>${away}</b>${awayScore}
       </div>

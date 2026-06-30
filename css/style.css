@@ -140,6 +140,33 @@ tr:last-child {
 tr:hover {
   background: rgba(255, 255, 255, 0.02);
 }
+tr.match-finished {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018), transparent 42%),
+    rgba(5, 7, 8, 0.28);
+}
+tr.match-finished:hover {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025), transparent 42%),
+    rgba(5, 7, 8, 0.34);
+}
+tr.match-finished .grp span {
+  background: rgba(255, 255, 255, 0.025);
+  color: #565656;
+}
+tr.match-finished .match > span {
+  opacity: 0.52;
+  filter: grayscale(0.8);
+}
+tr.match-finished .score {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #c5c5c5;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
+}
+tr.match-finished .score em {
+  color: #666;
+}
 td {
   padding: 13px 16px;
   font-size: 15px;
@@ -216,6 +243,27 @@ td {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 1px;
+}
+.time .finished-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #6e6e6e;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.time .finished-label span {
+  color: #5b766c;
+  font-size: 10px;
+}
+tr.match-finished .city {
+  margin-top: 3px;
+  opacity: 0.58;
 }
 .next-day {
   display: block;
@@ -1260,6 +1308,23 @@ td {
   overflow: hidden;
   box-shadow: 0 4px 6px rgba(0,0,0,0.3);
   margin: var(--bracket-node-margin);
+}
+.match-node--finished {
+  border-color: #292929;
+  background: #191919;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.22);
+  filter: saturate(0.48);
+  opacity: 0.68;
+}
+.match-node--finished .match-team {
+  background: #202020;
+}
+.match-node--finished .match-team--winner {
+  background: #252721;
+}
+.match-node--finished .match-team--winner b,
+.match-node--finished .match-team--winner em {
+  color: #d3ccb9;
 }
 
 .match-team {
