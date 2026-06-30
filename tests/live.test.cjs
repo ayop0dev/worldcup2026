@@ -31,6 +31,28 @@ function loadLive(groupStage = [], liveResults = {}) {
   assert(!teams.some(team => /أفضل ثالث|يتحدد/.test(team)));
   assert.equal(fixtures.find(match => match.matchNumber === 73).home, "جنوب أفريقيا");
   assert.equal(fixtures.find(match => match.matchNumber === 77).away, "السويد");
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(fixtures
+      .filter(match => [73, 74, 75, 76].includes(match.matchNumber))
+      .map(match => [match.matchNumber, match.homeScore, match.awayScore, match.status]))),
+    [
+      [73, 0, 1, "FINISHED"],
+      [74, 4, 5, "FINISHED"],
+      [75, 1, 1, "FINISHED"],
+      [76, 2, 1, "FINISHED"]
+    ]
+  );
+  const moroccoResult = fixtures.find(match => match.matchNumber === 75);
+  assert.equal(moroccoResult.homePenalties, 2);
+  assert.equal(moroccoResult.awayPenalties, 3);
+  assert.equal(moroccoResult.winner, "AWAY_TEAM");
+
+  const apiResult = fixtures.find(match => match.matchNumber === 73);
+  apiResult.homeScore = 9;
+  apiResult.awayScore = 8;
+  context.hydrateConfirmedRoundOf32();
+  assert.equal(apiResult.homeScore, 9);
+  assert.equal(apiResult.awayScore, 8);
 }
 
 {

@@ -55,10 +55,10 @@ var KNOCKOUT_MATCH_NUMBER_BY_UTC = {
 // Confirmed Round-of-32 fixtures after the group stage was completed.
 // These are the authoritative fallback when football-data.org omits a match.
 var ROUND_OF_32_TEMPLATE = [
-  { number: 73, utcDate: "2026-06-28T19:00:00Z", home: "جنوب أفريقيا", away: "كندا" },
-  { number: 74, utcDate: "2026-06-29T20:30:00Z", home: "ألمانيا", away: "باراغواي" },
-  { number: 75, utcDate: "2026-06-30T01:00:00Z", home: "هولندا", away: "المغرب" },
-  { number: 76, utcDate: "2026-06-29T17:00:00Z", home: "البرازيل", away: "اليابان" },
+  { number: 73, utcDate: "2026-06-28T19:00:00Z", home: "جنوب أفريقيا", away: "كندا", status: "FINISHED", homeScore: 0, awayScore: 1 },
+  { number: 74, utcDate: "2026-06-29T20:30:00Z", home: "ألمانيا", away: "باراغواي", status: "FINISHED", homeScore: 4, awayScore: 5 },
+  { number: 75, utcDate: "2026-06-30T01:00:00Z", home: "هولندا", away: "المغرب", status: "FINISHED", homeScore: 1, awayScore: 1, homePenalties: 2, awayPenalties: 3, winner: "AWAY_TEAM" },
+  { number: 76, utcDate: "2026-06-29T17:00:00Z", home: "البرازيل", away: "اليابان", status: "FINISHED", homeScore: 2, awayScore: 1 },
   { number: 77, utcDate: "2026-06-30T21:00:00Z", home: "فرنسا", away: "السويد" },
   { number: 78, utcDate: "2026-06-30T17:00:00Z", home: "ساحل العاج", away: "النرويج" },
   { number: 79, utcDate: "2026-07-01T01:00:00Z", home: "المكسيك", away: "الإكوادور" },
@@ -103,6 +103,22 @@ function hydrateConfirmedRoundOf32() {
 
     match.home = match.home || template.home;
     match.away = match.away || template.away;
+    if (match.homeScore === null && Number.isInteger(template.homeScore)) {
+      match.homeScore = template.homeScore;
+    }
+    if (match.awayScore === null && Number.isInteger(template.awayScore)) {
+      match.awayScore = template.awayScore;
+    }
+    if (match.homePenalties == null && Number.isInteger(template.homePenalties)) {
+      match.homePenalties = template.homePenalties;
+    }
+    if (match.awayPenalties == null && Number.isInteger(template.awayPenalties)) {
+      match.awayPenalties = template.awayPenalties;
+    }
+    match.winner = match.winner || template.winner || null;
+    if (match.status === "TIMED" && template.status) {
+      match.status = template.status;
+    }
     setKnockoutBracketMetadata(match);
   });
 }
@@ -235,6 +251,7 @@ function fetchAndMergeMatches() {
         var awayEn = m.awayTeam && m.awayTeam.name;
         if (m.stage && m.stage !== "GROUP_STAGE") {
           var knockoutScore = m.score && m.score.fullTime;
+          var knockoutPenalties = m.score && m.score.penalties;
           nextKnockoutMatches.push(setKnockoutBracketMetadata({
             id: m.id,
             stage: m.stage,
@@ -243,7 +260,10 @@ function fetchAndMergeMatches() {
             home: homeEn ? (EN_TO_AR[homeEn] || homeEn) : null,
             away: awayEn ? (EN_TO_AR[awayEn] || awayEn) : null,
             homeScore: knockoutScore && knockoutScore.home !== null ? knockoutScore.home : null,
-            awayScore: knockoutScore && knockoutScore.away !== null ? knockoutScore.away : null
+            awayScore: knockoutScore && knockoutScore.away !== null ? knockoutScore.away : null,
+            homePenalties: knockoutPenalties && knockoutPenalties.home !== null ? knockoutPenalties.home : null,
+            awayPenalties: knockoutPenalties && knockoutPenalties.away !== null ? knockoutPenalties.away : null,
+            winner: m.score && m.score.winner ? m.score.winner : null
           }));
           return;
         }

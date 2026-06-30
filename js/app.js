@@ -71,7 +71,10 @@ function resultHTML(result) {
 
   const isLive   = st === "IN_PLAY" || st === "LIVE";
   const isPaused = st === "PAUSED";
-  const label    = isLive ? "🔴" : isPaused ? "استراحة" : "انتهت";
+  const hasPenalties = Number.isInteger(r.homePenalties) && Number.isInteger(r.awayPenalties);
+  const label    = isLive ? "🔴" : isPaused ? "استراحة" : hasPenalties
+    ? `انتهت · ترجيح ${r.homePenalties}-${r.awayPenalties}`
+    : "انتهت";
   const scoreCls = (isLive || isPaused) ? " live" : "";
 
   return `<span class="score${scoreCls}"><b>${r.home}</b><span>-</span><b>${r.away}</b><em>${label}</em></span>`;
@@ -178,6 +181,8 @@ function renderKnockoutSchedule(root, matches, emptyText) {
       const result = {
         home: match.homeScore,
         away: match.awayScore,
+        homePenalties: match.homePenalties,
+        awayPenalties: match.awayPenalties,
         status: match.status || "TIMED"
       };
       const row = document.createElement("tr");
@@ -302,8 +307,10 @@ function getSortedStageMatches(stage, count) {
 function renderMatchNode(stage, slotIndex, match) {
   const home = match && match.home ? match.home : 'يتحدد لاحقًا';
   const away = match && match.away ? match.away : 'يتحدد لاحقًا';
-  const homeScore = match && match.homeScore !== null ? `<em>${match.homeScore}</em>` : '';
-  const awayScore = match && match.awayScore !== null ? `<em>${match.awayScore}</em>` : '';
+  const homePenalty = match && Number.isInteger(match.homePenalties) ? ` <small>(${match.homePenalties})</small>` : '';
+  const awayPenalty = match && Number.isInteger(match.awayPenalties) ? ` <small>(${match.awayPenalties})</small>` : '';
+  const homeScore = match && match.homeScore !== null ? `<em>${match.homeScore}${homePenalty}</em>` : '';
+  const awayScore = match && match.awayScore !== null ? `<em>${match.awayScore}${awayPenalty}</em>` : '';
   
   const flagMap = typeof buildFlagMap === 'function' ? buildFlagMap() : {};
   const homeFlag = flagMap[teamName(home)] || '';
@@ -338,6 +345,12 @@ function getWinner(match) {
   if (!match || match.homeScore === null || match.awayScore === null) return '—';
   if (match.homeScore > match.awayScore) return match.home;
   if (match.awayScore > match.homeScore) return match.away;
+  if (Number.isInteger(match.homePenalties) && Number.isInteger(match.awayPenalties)) {
+    if (match.homePenalties > match.awayPenalties) return match.home;
+    if (match.awayPenalties > match.homePenalties) return match.away;
+  }
+  if (match.winner === 'HOME_TEAM') return match.home;
+  if (match.winner === 'AWAY_TEAM') return match.away;
   return '—';
 }
 
