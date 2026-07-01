@@ -80,6 +80,10 @@ function loadLive(groupStage = [], liveResults = {}) {
   assert.deepEqual([mexicoResult.homeScore, mexicoResult.awayScore, mexicoResult.status, mexicoResult.winner], [2, 0, "FINISHED", "HOME_TEAM"]);
   const englandResult = fixtures.find(match => match.matchNumber === 80);
   assert.deepEqual([englandResult.homeScore, englandResult.awayScore, englandResult.status, englandResult.winner], [2, 1, "FINISHED", "HOME_TEAM"]);
+  const franceResult = fixtures.find(match => match.matchNumber === 77);
+  assert.deepEqual([franceResult.homeScore, franceResult.awayScore, franceResult.status, franceResult.winner], [3, 0, "FINISHED", "HOME_TEAM"]);
+  const norwayResult = fixtures.find(match => match.matchNumber === 78);
+  assert.deepEqual([norwayResult.homeScore, norwayResult.awayScore, norwayResult.status, norwayResult.winner], [1, 2, "FINISHED", "AWAY_TEAM"]);
 
   context.hydrateConfirmedRoundOf16();
   context.hydrateFullKnockoutSchedule();
