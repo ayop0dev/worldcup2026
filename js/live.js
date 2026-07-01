@@ -57,10 +57,10 @@ var KNOCKOUT_MATCH_NUMBER_BY_UTC = {
 // Confirmed Round-of-32 fixtures after the group stage was completed.
 // These are the authoritative fallback when football-data.org omits a match.
 var ROUND_OF_32_TEMPLATE = [
-  { number: 73, utcDate: "2026-06-28T19:00:00Z", home: "جنوب أفريقيا", away: "كندا", status: "FINISHED", homeScore: 0, awayScore: 1 },
-  { number: 74, utcDate: "2026-06-29T20:30:00Z", home: "ألمانيا", away: "باراغواي", status: "FINISHED", homeScore: 4, awayScore: 5 },
+  { number: 73, utcDate: "2026-06-28T19:00:00Z", home: "جنوب أفريقيا", away: "كندا", status: "FINISHED", homeScore: 0, awayScore: 1, winner: "AWAY_TEAM" },
+  { number: 74, utcDate: "2026-06-29T20:30:00Z", home: "ألمانيا", away: "باراغواي", status: "FINISHED", homeScore: 4, awayScore: 5, winner: "AWAY_TEAM" },
   { number: 75, utcDate: "2026-06-30T01:00:00Z", home: "هولندا", away: "المغرب", status: "FINISHED", homeScore: 1, awayScore: 1, homePenalties: 2, awayPenalties: 3, winner: "AWAY_TEAM" },
-  { number: 76, utcDate: "2026-06-29T17:00:00Z", home: "البرازيل", away: "اليابان", status: "FINISHED", homeScore: 2, awayScore: 1 },
+  { number: 76, utcDate: "2026-06-29T17:00:00Z", home: "البرازيل", away: "اليابان", status: "FINISHED", homeScore: 2, awayScore: 1, winner: "HOME_TEAM" },
   { number: 77, utcDate: "2026-06-30T21:00:00Z", home: "فرنسا", away: "السويد" },
   { number: 78, utcDate: "2026-06-30T17:00:00Z", home: "ساحل العاج", away: "النرويج" },
   { number: 79, utcDate: "2026-07-01T01:00:00Z", home: "المكسيك", away: "الإكوادور", status: "FINISHED", homeScore: 2, awayScore: 0, winner: "HOME_TEAM" },
@@ -75,6 +75,15 @@ var ROUND_OF_32_TEMPLATE = [
   { number: 88, utcDate: "2026-07-03T18:00:00Z", home: "أستراليا", away: "مصر" }
 ];
 
+// Confirmed Round-of-16 pairings locked in by the finished Round-of-32 ties.
+// These keep the bracket populated when the upstream API publishes pairings late.
+var ROUND_OF_16_TEMPLATE = [
+  { number: 89, utcDate: "2026-07-04T21:00:00Z", home: "باراغواي", away: "فرنسا" },
+  { number: 90, utcDate: "2026-07-04T17:00:00Z", home: "كندا", away: "المغرب" },
+  { number: 91, utcDate: "2026-07-05T20:00:00Z", home: "البرازيل", away: "النرويج" },
+  { number: 92, utcDate: "2026-07-06T00:00:00Z", home: "المكسيك", away: "إنجلترا" }
+];
+
 function setKnockoutBracketMetadata(match) {
   if (!match) return match;
   match.matchNumber = match.matchNumber || KNOCKOUT_MATCH_NUMBER_BY_UTC[match.utcDate] || null;
@@ -83,8 +92,8 @@ function setKnockoutBracketMetadata(match) {
   return match;
 }
 
-function hydrateConfirmedRoundOf32() {
-  ROUND_OF_32_TEMPLATE.forEach(function(template) {
+function hydrateKnockoutStageTemplate(stage, templates) {
+  templates.forEach(function(template) {
     var match = liveKnockoutMatches.find(function(candidate) {
       return candidate.matchNumber === template.number;
     });
@@ -92,7 +101,7 @@ function hydrateConfirmedRoundOf32() {
       match = {
         id: "fallback-" + template.number,
         matchNumber: template.number,
-        stage: "LAST_32",
+        stage: stage,
         utcDate: template.utcDate,
         status: "TIMED",
         home: null,
@@ -123,6 +132,14 @@ function hydrateConfirmedRoundOf32() {
     }
     setKnockoutBracketMetadata(match);
   });
+}
+
+function hydrateConfirmedRoundOf32() {
+  hydrateKnockoutStageTemplate("LAST_32", ROUND_OF_32_TEMPLATE);
+}
+
+function hydrateConfirmedRoundOf16() {
+  hydrateKnockoutStageTemplate("LAST_16", ROUND_OF_16_TEMPLATE);
 }
 
 function knockoutStageForMatchNumber(number) {
@@ -608,6 +625,7 @@ function refreshLiveData() {
     .then(function(results) {
       var summary = results[0];
       hydrateConfirmedRoundOf32();
+      hydrateConfirmedRoundOf16();
       hydrateFullKnockoutSchedule();
       hydrateKnownKnockoutAdvancement();
       if (summary) {
@@ -652,6 +670,7 @@ function refreshLiveData() {
 // Kick off immediately: restore the last successful API snapshot, then keep it fresh.
 var restoredLiveCache = restoreLiveCache();
 hydrateConfirmedRoundOf32();
+hydrateConfirmedRoundOf16();
 hydrateFullKnockoutSchedule();
 hydrateKnownKnockoutAdvancement();
 if (restoredLiveCache) setIndicator("cached");

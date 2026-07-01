@@ -81,8 +81,18 @@ function loadLive(groupStage = [], liveResults = {}) {
   const englandResult = fixtures.find(match => match.matchNumber === 80);
   assert.deepEqual([englandResult.homeScore, englandResult.awayScore, englandResult.status, englandResult.winner], [2, 1, "FINISHED", "HOME_TEAM"]);
 
+  context.hydrateConfirmedRoundOf16();
   context.hydrateFullKnockoutSchedule();
   context.hydrateKnownKnockoutAdvancement();
+  const paraguayFrance = context.liveKnockoutMatches.find(match => match.matchNumber === 89);
+  assert.equal(paraguayFrance.home, "باراغواي");
+  assert.equal(paraguayFrance.away, "فرنسا");
+  const canadaMorocco = context.liveKnockoutMatches.find(match => match.matchNumber === 90);
+  assert.equal(canadaMorocco.home, "كندا");
+  assert.equal(canadaMorocco.away, "المغرب");
+  const brazilNorway = context.liveKnockoutMatches.find(match => match.matchNumber === 91);
+  assert.equal(brazilNorway.home, "البرازيل");
+  assert.equal(brazilNorway.away, "النرويج");
   const mexicoEngland = context.liveKnockoutMatches.find(match => match.matchNumber === 92);
   assert.equal(mexicoEngland.home, mexicoResult.home);
   assert.equal(mexicoEngland.away, englandResult.home);
