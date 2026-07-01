@@ -181,6 +181,7 @@ function renderKnockoutSchedule(root, matches, emptyText) {
       const away = match.away || "يتحدد لاحقًا";
       const status = (match.status || "TIMED").toUpperCase();
       const isFinished = status === "FINISHED" || status === "FT" || status === "AWARDED";
+      const winner = isFinished ? getWinner(match) : "—";
       const result = {
         home: match.homeScore,
         away: match.awayScore,
@@ -193,7 +194,7 @@ function renderKnockoutSchedule(root, matches, emptyText) {
       row.dataset.status = status.toLowerCase();
       row.innerHTML = `
         <td class="grp"><span>${match.matchNumber || "32"}</span></td>
-        <td class="match"><span class="${cls(home)}">${home}</span>${resultHTML(result)}<span class="${cls(away)}">${away}</span></td>
+        <td class="match"><span class="match-side ${cls(home)}${winner === home ? " match-side--qualified" : ""}">${home}${winner === home ? '<small class="qualified-badge"><span aria-hidden="true">✓</span> تأهل</small>' : ""}</span>${resultHTML(result)}<span class="match-side ${cls(away)}${winner === away ? " match-side--qualified" : ""}">${away}${winner === away ? '<small class="qualified-badge"><span aria-hidden="true">✓</span> تأهل</small>' : ""}</span></td>
         <td class="time">${isFinished
           ? `<b class="finished-label"><span aria-hidden="true">✓</span> انتهت</b><div class="city">بدأت ${cairo.time}</div>`
           : `<b>${cairo.time}</b><div class="city">بتوقيت القاهرة</div>`}</td>`;
@@ -332,11 +333,11 @@ function renderMatchNode(stage, slotIndex, match) {
     <div class="match-node${isFinished ? ' match-node--finished' : ''}" id="node-${stage}-${slotIndex}">
       <div class="match-team${winner === home ? ' match-team--winner' : ''}">
         <span class="seed-badge${homeFlagClass}">${homeFlag || '—'}</span>
-        <b>${home}</b>${homeScore}
+        <b>${home}</b>${winner === home ? '<span class="qualified-mark" aria-label="تأهل">✓</span>' : ''}${homeScore}
       </div>
       <div class="match-team${winner === away ? ' match-team--winner' : ''}">
         <span class="seed-badge${awayFlagClass}">${awayFlag || '—'}</span>
-        <b>${away}</b>${awayScore}
+        <b>${away}</b>${winner === away ? '<span class="qualified-mark" aria-label="تأهل">✓</span>' : ''}${awayScore}
       </div>
     </div>
   `;

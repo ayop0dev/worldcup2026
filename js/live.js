@@ -63,8 +63,8 @@ var ROUND_OF_32_TEMPLATE = [
   { number: 76, utcDate: "2026-06-29T17:00:00Z", home: "البرازيل", away: "اليابان", status: "FINISHED", homeScore: 2, awayScore: 1 },
   { number: 77, utcDate: "2026-06-30T21:00:00Z", home: "فرنسا", away: "السويد" },
   { number: 78, utcDate: "2026-06-30T17:00:00Z", home: "ساحل العاج", away: "النرويج" },
-  { number: 79, utcDate: "2026-07-01T01:00:00Z", home: "المكسيك", away: "الإكوادور" },
-  { number: 80, utcDate: "2026-07-01T16:00:00Z", home: "إنجلترا", away: "الكونغو الديمقراطية" },
+  { number: 79, utcDate: "2026-07-01T01:00:00Z", home: "المكسيك", away: "الإكوادور", status: "FINISHED", homeScore: 2, awayScore: 0, winner: "HOME_TEAM" },
+  { number: 80, utcDate: "2026-07-01T16:00:00Z", home: "إنجلترا", away: "الكونغو الديمقراطية", status: "FINISHED", homeScore: 2, awayScore: 1, winner: "HOME_TEAM" },
   { number: 81, utcDate: "2026-07-02T00:00:00Z", home: "الولايات المتحدة", away: "البوسنة والهرسك" },
   { number: 82, utcDate: "2026-07-01T20:00:00Z", home: "بلجيكا", away: "السنغال" },
   { number: 83, utcDate: "2026-07-02T23:00:00Z", home: "البرتغال", away: "كرواتيا" },
@@ -153,6 +153,50 @@ function hydrateFullKnockoutSchedule() {
       homeScore: null,
       awayScore: null
     }));
+  });
+}
+
+function knockoutWinnerTeam(match) {
+  if (!match || match.homeScore == null || match.awayScore == null) return null;
+  if (match.homeScore > match.awayScore) return match.home;
+  if (match.awayScore > match.homeScore) return match.away;
+  if (Number.isInteger(match.homePenalties) && Number.isInteger(match.awayPenalties)) {
+    if (match.homePenalties > match.awayPenalties) return match.home;
+    if (match.awayPenalties > match.homePenalties) return match.away;
+  }
+  if (match.winner === "HOME_TEAM") return match.home;
+  if (match.winner === "AWAY_TEAM") return match.away;
+  return null;
+}
+
+// Fill the next bracket node as soon as both feeder matches are decided.
+// API-provided team names always win; fallback advancement only fills blanks.
+function hydrateKnownKnockoutAdvancement() {
+  var routes = [
+    ["LAST_32", "LAST_16"],
+    ["LAST_16", "QUARTER_FINALS"],
+    ["QUARTER_FINALS", "SEMI_FINALS"],
+    ["SEMI_FINALS", "FINAL"]
+  ];
+
+  routes.forEach(function(route) {
+    var sourceOrder = KNOCKOUT_STAGE_ORDER[route[0]] || [];
+    var targetOrder = KNOCKOUT_STAGE_ORDER[route[1]] || [];
+    targetOrder.forEach(function(targetNumber, index) {
+      var target = liveKnockoutMatches.find(function(match) {
+        return match.matchNumber === targetNumber;
+      });
+      if (!target) return;
+
+      var homeSource = liveKnockoutMatches.find(function(match) {
+        return match.matchNumber === sourceOrder[index * 2];
+      });
+      var awaySource = liveKnockoutMatches.find(function(match) {
+        return match.matchNumber === sourceOrder[index * 2 + 1];
+      });
+      target.home = target.home || knockoutWinnerTeam(homeSource);
+      target.away = target.away || knockoutWinnerTeam(awaySource);
+    });
   });
 }
 
@@ -565,6 +609,7 @@ function refreshLiveData() {
       var summary = results[0];
       hydrateConfirmedRoundOf32();
       hydrateFullKnockoutSchedule();
+      hydrateKnownKnockoutAdvancement();
       if (summary) {
         summary.reconciledGroup = standingsError ? 0 : reconcileMissingGroupResultsFromStandings();
         summary.groupComplete = countCompletedGroupResults();
@@ -608,6 +653,7 @@ function refreshLiveData() {
 var restoredLiveCache = restoreLiveCache();
 hydrateConfirmedRoundOf32();
 hydrateFullKnockoutSchedule();
+hydrateKnownKnockoutAdvancement();
 if (restoredLiveCache) setIndicator("cached");
 refreshLiveData();
 setInterval(refreshLiveData, 30000);

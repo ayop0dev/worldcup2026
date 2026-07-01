@@ -158,6 +158,10 @@ tr.match-finished .match > span {
   opacity: 0.52;
   filter: grayscale(0.8);
 }
+tr.match-finished .match > .match-side--qualified {
+  opacity: 1;
+  filter: none;
+}
 tr.match-finished .score {
   background: rgba(255, 255, 255, 0.035);
   border-color: rgba(255, 255, 255, 0.08);
@@ -189,6 +193,25 @@ td {
 }
 .match {
   font-weight: 600;
+}
+.match-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.qualified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border: 1px solid rgba(30, 166, 114, 0.38);
+  border-radius: 999px;
+  background: rgba(30, 166, 114, 0.12);
+  color: #76d7af;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.5;
+  white-space: nowrap;
 }
 .match .vs {
   color: var(--muted);
@@ -1310,21 +1333,35 @@ tr.match-finished .city {
   margin: var(--bracket-node-margin);
 }
 .match-node--finished {
-  border-color: #292929;
+  border-color: #34342d;
   background: #191919;
   box-shadow: 0 2px 5px rgba(0,0,0,0.22);
-  filter: saturate(0.48);
-  opacity: 0.68;
 }
 .match-node--finished .match-team {
   background: #202020;
+  opacity: 0.58;
 }
 .match-node--finished .match-team--winner {
-  background: #252721;
+  background: #213027;
+  opacity: 1;
 }
 .match-node--finished .match-team--winner b,
 .match-node--finished .match-team--winner em {
-  color: #d3ccb9;
+  color: #e2f2e9;
+}
+.qualified-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border-radius: 50%;
+  background: #2b8e66;
+  color: #f2fff9;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .match-team {

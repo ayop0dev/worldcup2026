@@ -23,8 +23,13 @@ const vm = require("vm");
   assert(app.includes('row.className = isFinished ? "match-finished" : "match-upcoming"'));
   assert(app.includes('class="finished-label"'));
   assert(app.includes("match-node--finished"));
+  assert(app.includes("match-side--qualified"));
+  assert(app.includes('class="qualified-badge"'));
+  assert(app.includes('class="qualified-mark"'));
   assert(css.includes("tr.match-finished"));
   assert(css.includes(".match-node--finished"));
+  assert(css.includes(".qualified-badge"));
+  assert(css.includes(".qualified-mark"));
 }
 
 function loadLive(groupStage = [], liveResults = {}) {
@@ -71,6 +76,16 @@ function loadLive(groupStage = [], liveResults = {}) {
   assert.equal(moroccoResult.homePenalties, 2);
   assert.equal(moroccoResult.awayPenalties, 3);
   assert.equal(moroccoResult.winner, "AWAY_TEAM");
+  const mexicoResult = fixtures.find(match => match.matchNumber === 79);
+  assert.deepEqual([mexicoResult.homeScore, mexicoResult.awayScore, mexicoResult.status, mexicoResult.winner], [2, 0, "FINISHED", "HOME_TEAM"]);
+  const englandResult = fixtures.find(match => match.matchNumber === 80);
+  assert.deepEqual([englandResult.homeScore, englandResult.awayScore, englandResult.status, englandResult.winner], [2, 1, "FINISHED", "HOME_TEAM"]);
+
+  context.hydrateFullKnockoutSchedule();
+  context.hydrateKnownKnockoutAdvancement();
+  const mexicoEngland = context.liveKnockoutMatches.find(match => match.matchNumber === 92);
+  assert.equal(mexicoEngland.home, mexicoResult.home);
+  assert.equal(mexicoEngland.away, englandResult.home);
 
   const apiResult = fixtures.find(match => match.matchNumber === 73);
   apiResult.homeScore = 9;
