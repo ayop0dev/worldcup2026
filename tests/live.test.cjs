@@ -81,6 +81,21 @@ function loadLive(groupStage = [], liveResults = {}) {
 }
 
 {
+  const context = loadLive();
+  context.liveKnockoutMatches = [
+    { id: 1, matchNumber: 73, stage: "LAST_32", homeScore: 1, dataSource: "api" },
+    { id: "fallback-74", matchNumber: 74, stage: "LAST_32", dataSource: "fallback" }
+  ];
+  const merged = context.mergeApiKnockoutMatches([
+    { id: 2, matchNumber: 75, stage: "LAST_32", homeScore: 2, dataSource: "api" }
+  ]);
+
+  assert.deepEqual(Array.from(merged, match => match.matchNumber).sort(), [73, 75]);
+  assert.equal(merged.find(match => match.matchNumber === 73).homeScore, 1);
+  assert(!merged.some(match => match.dataSource === "fallback"));
+}
+
+{
   const matches = [
     ["A", "فريق أ", "فريق ب", "12:00", "مدينة"],
     ["A", "فريق ج", "فريق د", "12:00", "مدينة"],
@@ -133,6 +148,8 @@ function loadLive(groupStage = [], liveResults = {}) {
   assert.deepEqual(Array.from(context.knockoutMatchesByTournamentDay("2026-06-28"), match => match.matchNumber), [73]);
   assert.deepEqual(Array.from(context.knockoutMatchesByTournamentDay("2026-06-29"), match => match.matchNumber), [76, 74, 75]);
   assert(source.includes("renderKnockoutSchedule(root, todayKnockoutMatches)"));
+  assert(source.includes('filter === "knockout"'));
+  assert(source.includes("renderKnockoutRoundsSchedule(root)"));
 }
 
 console.log("live data tests passed");

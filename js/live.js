@@ -5,6 +5,8 @@ var liveStandings = {};
 var liveSyncSummary = null;
 var liveKnockoutMatches = [];
 var liveRefreshInFlight = false;
+var LIVE_CACHE_KEY = "wc2026-live-v2";
+var LIVE_CACHE_MAX_AGE = 6 * 60 * 60 * 1000;
 
 // FIFA's official bracket order is not chronological. Keeping the match
 // numbers here lets the UI place every fixture on the correct route to the
@@ -156,6 +158,65 @@ function hydrateFullKnockoutSchedule() {
 
 var WORKER_BASE = "https://worldcup2026-api.ayopwebdev.workers.dev";
 
+function apiUrl(path) {
+  return WORKER_BASE + path + "?t=" + Date.now();
+}
+
+function fetchFreshJson(path) {
+  var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  var timer = controller ? setTimeout(function() { controller.abort(); }, 12000) : null;
+  return fetch(apiUrl(path), {
+    cache: "no-store",
+    signal: controller ? controller.signal : undefined
+  }).then(function(res) {
+    if (!res.ok) throw new Error(path + " " + res.status);
+    return res.json();
+  }).finally(function() {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+function knockoutIdentity(match) {
+  if (match.matchNumber) return "number:" + match.matchNumber;
+  if (match.id) return "id:" + match.id;
+  return "fixture:" + (match.stage || "") + ":" + (match.utcDate || "");
+}
+
+function mergeApiKnockoutMatches(incoming) {
+  var byIdentity = {};
+  liveKnockoutMatches.forEach(function(match) {
+    if (match.dataSource === "api") byIdentity[knockoutIdentity(match)] = match;
+  });
+  incoming.forEach(function(match) {
+    byIdentity[knockoutIdentity(match)] = match;
+  });
+  return Object.keys(byIdentity).map(function(key) { return byIdentity[key]; });
+}
+
+function saveLiveCache() {
+  try {
+    localStorage.setItem(LIVE_CACHE_KEY, JSON.stringify({
+      savedAt: Date.now(),
+      results: liveResults,
+      standings: liveStandings,
+      knockout: liveKnockoutMatches.filter(function(match) { return match.dataSource === "api"; })
+    }));
+  } catch (_) {}
+}
+
+function restoreLiveCache() {
+  try {
+    var cached = JSON.parse(localStorage.getItem(LIVE_CACHE_KEY) || "null");
+    if (!cached || !cached.savedAt || Date.now() - cached.savedAt > LIVE_CACHE_MAX_AGE) return false;
+    if (cached.results) liveResults = cached.results;
+    if (cached.standings) liveStandings = cached.standings;
+    if (Array.isArray(cached.knockout)) liveKnockoutMatches = cached.knockout;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 // English (football-data.org) → Arabic team name mapping
 var EN_TO_AR = {
   "Mexico": "المكسيك",
@@ -223,14 +284,10 @@ var EN_TO_AR = {
 
 // Fetch /matches from Worker and merge results into the shared liveResults map
 function fetchAndMergeMatches() {
-  return fetch(WORKER_BASE + "/matches", { cache: "no-store" })
-    .then(function(res) {
-      if (!res.ok) throw new Error("matches " + res.status);
-      return res.json();
-    })
+  return fetchFreshJson("/matches")
     .then(function(json) {
       var apiMatches = Array.isArray(json) ? json : (json.matches || []);
-      var nextKnockoutMatches = [];
+      var incomingKnockoutMatches = [];
       var nextLiveResults = Object.assign({}, liveResults);
       var summary = {
         received: apiMatches.length,
@@ -238,6 +295,8 @@ function fetchAndMergeMatches() {
         receivedRoundOf32: 0,
         matched: 0,
         localTotal: groupStage.reduce(function(total, day) { return total + day.m.length; }, 0),
+        apiKnockout: 0,
+        freshestAt: null,
         unmappedTeams: [],
         unmatchedFixtures: []
       };
@@ -252,7 +311,7 @@ function fetchAndMergeMatches() {
         if (m.stage && m.stage !== "GROUP_STAGE") {
           var knockoutScore = m.score && m.score.fullTime;
           var knockoutPenalties = m.score && m.score.penalties;
-          nextKnockoutMatches.push(setKnockoutBracketMetadata({
+          incomingKnockoutMatches.push(setKnockoutBracketMetadata({
             id: m.id,
             stage: m.stage,
             utcDate: m.utcDate,
@@ -263,8 +322,14 @@ function fetchAndMergeMatches() {
             awayScore: knockoutScore && knockoutScore.away !== null ? knockoutScore.away : null,
             homePenalties: knockoutPenalties && knockoutPenalties.home !== null ? knockoutPenalties.home : null,
             awayPenalties: knockoutPenalties && knockoutPenalties.away !== null ? knockoutPenalties.away : null,
-            winner: m.score && m.score.winner ? m.score.winner : null
+            winner: m.score && m.score.winner ? m.score.winner : null,
+            lastUpdated: m.lastUpdated || null,
+            dataSource: "api"
           }));
+          summary.apiKnockout++;
+          if (m.lastUpdated && (!summary.freshestAt || m.lastUpdated > summary.freshestAt)) {
+            summary.freshestAt = m.lastUpdated;
+          }
           return;
         }
         if (!homeEn || !awayEn) return;
@@ -304,7 +369,7 @@ function fetchAndMergeMatches() {
         // Handle no-score statuses
         if (status === "POSTPONED" || status === "CANCELLED") {
           nextLiveResults[matchKey(arabicDate, local[1], local[2])] = {
-            home: null, away: null, status: status, utcDate: m.utcDate, id: m.id
+            home: null, away: null, status: status, utcDate: m.utcDate, id: m.id, source: "api"
           };
           summary.matched++;
           return;
@@ -321,11 +386,13 @@ function fetchAndMergeMatches() {
           away: swapped ? apiHomeScore : apiAwayScore,
           status: status,
           utcDate: m.utcDate,
-          id: m.id
+          id: m.id,
+          source: "api"
         };
         summary.matched++;
       });
 
+      var nextKnockoutMatches = mergeApiKnockoutMatches(incomingKnockoutMatches);
       nextKnockoutMatches.sort(function(a, b) {
         if (a.stage === b.stage && a.bracketSlot >= 0 && b.bracketSlot >= 0) {
           return a.bracketSlot - b.bracketSlot;
@@ -342,11 +409,7 @@ function fetchAndMergeMatches() {
 
 // Fetch /standings from Worker and populate liveStandings
 function fetchAndStoreStandings() {
-  return fetch(WORKER_BASE + "/standings", { cache: "no-store" })
-    .then(function(res) {
-      if (!res.ok) throw new Error("standings " + res.status);
-      return res.json();
-    })
+  return fetchFreshJson("/standings")
     .then(function(json) {
       var nextStandings = {};
       (json.standings || []).forEach(function(grp) {
@@ -462,24 +525,23 @@ function setIndicator(mode, summary) {
   if (!el) return;
   while (el.firstChild) el.removeChild(el.firstChild);
   var dot = document.createElement("span");
-  if (mode === "live" || mode === "partial") {
+  if (mode === "live") {
     var t = new Date().toLocaleTimeString("ar-EG", {
       hour: "2-digit", minute: "2-digit", timeZone: "Africa/Cairo"
     });
     dot.className = "ind-dot live-dot";
     el.appendChild(dot);
-    var coverage = summary
-      ? " · المجموعات " + summary.groupComplete + "/" + summary.localTotal +
-        (summary.reconciledGroup ? " (" + summary.reconciledGroup + " مستعادة من الترتيب النهائي)" : "") +
-        " · دور الـ32 " + summary.roundOf32Complete + "/16" +
-        " · الترتيب " + summary.standingsGroups + "/12"
-      : "";
-    el.appendChild(document.createTextNode(" بيانات مباشرة" + coverage + " · آخر تحديث: " + t));
-    el.className = mode === "partial" ? "live-ind live-ind--partial" : "live-ind live-ind--on";
+    el.appendChild(document.createTextNode(" محدّث الآن · " + t));
+    el.className = "live-ind live-ind--on";
+  } else if (mode === "cached") {
+    dot.className = "ind-dot static-dot";
+    el.appendChild(dot);
+    el.appendChild(document.createTextNode(" آخر بيانات متاحة"));
+    el.className = "live-ind live-ind--off";
   } else {
     dot.className = "ind-dot static-dot";
     el.appendChild(dot);
-    el.appendChild(document.createTextNode(" بيانات محفوظة"));
+    el.appendChild(document.createTextNode(" جاري التحديث"));
     el.className = "live-ind live-ind--off";
   }
 }
@@ -511,13 +573,10 @@ function refreshLiveData() {
         }).length;
         summary.standingsGroups = Object.keys(liveStandings).length;
         summary.standingsFresh = !standingsError;
-        var syncMode = summary.groupComplete === summary.localTotal &&
-          summary.roundOf32Complete === 16 &&
-          summary.standingsGroups === 12 &&
-          summary.standingsFresh ? "live" : "partial";
-        setIndicator(syncMode, summary);
+        setIndicator("live", summary);
+        saveLiveCache();
       } else {
-        setIndicator("static");
+        setIndicator(liveKnockoutMatches.some(function(match) { return match.dataSource === "api"; }) ? "cached" : "static");
       }
       if (matchesError) console.warn("[live] matches fetch error:", matchesError.message || matchesError);
       if (standingsError) console.warn("[live] standings fetch error:", standingsError.message || standingsError);
@@ -545,6 +604,14 @@ function refreshLiveData() {
     });
 }
 
-// Kick off immediately, then refresh every 60 seconds
+// Kick off immediately: restore the last successful API snapshot, then keep it fresh.
+var restoredLiveCache = restoreLiveCache();
+hydrateConfirmedRoundOf32();
+hydrateFullKnockoutSchedule();
+if (restoredLiveCache) setIndicator("cached");
 refreshLiveData();
-setInterval(refreshLiveData, 60000);
+setInterval(refreshLiveData, 30000);
+window.addEventListener("focus", refreshLiveData);
+document.addEventListener("visibilitychange", function() {
+  if (document.visibilityState === "visible") refreshLiveData();
+});

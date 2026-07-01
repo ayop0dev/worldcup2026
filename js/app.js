@@ -120,9 +120,9 @@ function toEgyptTime(t) {
 function setMainNote(mode) {
   const note = document.getElementById("mainNote");
   if (!note) return;
-  note.innerHTML = mode === "last32"
-    ? '🏆 مباريات دور الـ32 مرتبة حسب الموعد، وكل المواعيد بتوقيت <b>القاهرة (GMT+3)</b>'
-    : '⏰ المباريات مجمعة حسب يوم FIFA، وكل المواعيد بتوقيت <b>القاهرة (GMT+3)</b>';
+  note.innerHTML = mode === "knockout"
+    ? '🏆 جميع مباريات الأدوار الإقصائية · بتوقيت <b>القاهرة</b>'
+    : '⏰ جميع المواعيد بتوقيت <b>القاهرة</b>';
 }
 
 function knockoutCairoDateParts(utcDate) {
@@ -172,7 +172,8 @@ function renderKnockoutSchedule(root, matches, emptyText) {
   days.forEach(day => {
     const box = document.createElement("div");
     box.className = "day";
-    box.innerHTML = `<div class="day-head"><span>${day.label}</span><span class="dd">${knockoutStageLabel(day.matches[0].match.stage)}</span></div>`;
+    const stages = [...new Set(day.matches.map(item => knockoutStageLabel(item.match.stage)))];
+    box.innerHTML = `<div class="day-head"><span>${day.label}</span><span class="dd">${stages.join(" · ")}</span></div>`;
     const table = document.createElement("table");
 
     day.matches.forEach(({ match, cairo }) => {
@@ -204,12 +205,12 @@ function renderKnockoutSchedule(root, matches, emptyText) {
   });
 }
 
-function renderRoundOf32Schedule(root, selectedMatches) {
+function renderKnockoutRoundsSchedule(root, selectedMatches) {
   const source = Array.isArray(selectedMatches)
     ? selectedMatches
     : (typeof liveKnockoutMatches !== "undefined" ? liveKnockoutMatches : []);
-  const matches = source.filter(match => match.stage === "LAST_32");
-  renderKnockoutSchedule(root, matches, "جاري تحميل مباريات دور الـ32...");
+  const matches = source.filter(match => match.stage && match.stage !== "GROUP_STAGE");
+  renderKnockoutSchedule(root, matches, "جاري تحميل مباريات الأدوار الإقصائية...");
 }
 
 function render() {
@@ -221,23 +222,22 @@ function render() {
 
   const ph = document.createElement("div");
   ph.className = "phase";
-  ph.textContent = filter === "today" ? "مباريات يوم البطولة" : filter === "last32" ? "مباريات دور الـ32" : filter === "egypt" ? "مباريات مصر" : "دور المجموعات";
+  ph.textContent = filter === "today" ? "مباريات اليوم" : filter === "knockout" ? "الأدوار الإقصائية" : filter === "egypt" ? "مباريات مصر" : "دور المجموعات";
   root.appendChild(ph);
 
-  if (filter === "last32") {
-    renderRoundOf32Schedule(root);
+  if (filter === "knockout") {
+    renderKnockoutRoundsSchedule(root);
     return;
   }
 
   if (filter === "egypt") {
     const egyptRoundOf32 = (typeof liveKnockoutMatches !== "undefined" ? liveKnockoutMatches : [])
-      .filter(match => match.stage === "LAST_32" &&
-        ((match.home || "").includes("مصر") || (match.away || "").includes("مصر")));
+      .filter(match => (match.home || "").includes("مصر") || (match.away || "").includes("مصر"));
     const knockoutPhase = document.createElement("div");
     knockoutPhase.className = "phase";
-    knockoutPhase.textContent = "دور الـ32";
+    knockoutPhase.textContent = "الأدوار الإقصائية";
     root.appendChild(knockoutPhase);
-    renderRoundOf32Schedule(root, egyptRoundOf32);
+    renderKnockoutRoundsSchedule(root, egyptRoundOf32);
 
     const groupsPhase = document.createElement("div");
     groupsPhase.className = "phase";
@@ -406,7 +406,7 @@ function renderKnockout(root, previousScroll) {
   section.innerHTML = `
     <header class="bracket-head">
       <div><span>الطريق إلى الكأس</span><h2 id="knockoutTitle">الأدوار الإقصائية</h2></div>
-      <p>٣٢ منتخبًا · خروج مباشر · بطل واحد</p>
+      <p>خروج مباشر · طريق واحد إلى الكأس</p>
     </header>
     <div class="bracket-hint" aria-hidden="true">اسحب الشاشة لمشاهدة الشجرة كاملة ↔</div>
     <div class="bracket-viewport" id="bracketViewport" tabindex="0" aria-label="شجرة الأدوار الإقصائية، اسحب أفقيًا لاستعراضها">
@@ -417,7 +417,7 @@ function renderKnockout(root, previousScroll) {
         ${rightHTML}
       </div>
     </div>
-    <div class="bracket-foot"><span>المواجهات تُملأ تلقائيًا بعد حسم المتأهلين</span><b>المركز الثالث · ١٨ يوليو</b></div>
+    <div class="bracket-foot"><span>تظهر المواجهات فور حسم التأهل</span><b>المركز الثالث · ١٨ يوليو</b></div>
   `;
   
   root.appendChild(section);
